@@ -1,32 +1,66 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  Container,
-  Paper,
-  Typography,
-  Box,
+  Alert,
   Button,
   Card,
   CardContent,
-  Grid,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
-  Alert,
-  CircularProgress,
-  LinearProgress,
   Chip,
+  CircularProgress,
+  FormControlLabel,
+  LinearProgress,
+  Radio,
+  RadioGroup,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  ButtonGroup,
+  Typography,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
 import ArrowBack from '@mui/icons-material/ArrowBack';
+import Assessment from '@mui/icons-material/Assessment';
+import CheckCircle from '@mui/icons-material/CheckCircle';
 import EditIcon from '@mui/icons-material/Edit';
+import History from '@mui/icons-material/History';
+import Psychology from '@mui/icons-material/Psychology';
+import RestartAlt from '@mui/icons-material/RestartAlt';
+import Save from '@mui/icons-material/Save';
+import { useNavigate } from 'react-router-dom';
+import { Sidebar } from '../components/layout/Sidebar';
+import { EmergencySOS } from '../components/common/EmergencySOS';
 import api from '../services/api';
+
+const questions = [
+  'I found myself getting upset by quite trivial things.',
+  'I was aware of dryness of my mouth.',
+  "I couldn't seem to experience any positive feeling at all.",
+  'I experienced breathing difficulty, such as rapid breathing or breathlessness without physical exertion.',
+  'I found it difficult to work up the initiative to do things.',
+  'I tended to over-react to situations.',
+  'I experienced trembling, such as in the hands.',
+  'I felt that I was using a lot of nervous energy.',
+  'I was worried about situations in which I might panic and make a fool of myself.',
+  'I felt that I had nothing to look forward to.',
+  'I found myself getting upset rather easily.',
+  'I felt that I was rather touchy.',
+  'I was able to laugh and see the funny side of things.',
+  'I felt downhearted and blue.',
+  'I was intolerant of anything that kept me from getting on with what I was doing.',
+  'I felt I was close to panic.',
+  'I was unable to become enthusiastic about anything.',
+  "I felt I wasn't worth much as a person.",
+  'I felt that I was rather irritable.',
+  'I felt I had a lot of nervous energy.',
+  'I thought of myself as a worthless person.',
+];
+
+const responseLabels = [
+  'Did not apply to me at all',
+  'Applied to me to some degree',
+  'Applied to me to a considerable degree',
+  'Applied to me very much',
+];
 
 const DASS21Assessment = () => {
   const navigate = useNavigate();
@@ -40,34 +74,30 @@ const DASS21Assessment = () => {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
 
-  // Load today's assessment and history on component mount
   useEffect(() => {
     const loadAssessments = async () => {
       try {
         setLoading(true);
 
-        // Fetch today's assessment
         try {
           const todayResponse = await api.get('/api/assessments/dass21/today');
           const today = todayResponse.data;
           setResponses(today.responses);
           setEditingId(today.id);
           setResult(today);
-          console.log('✅ Loaded today\'s DASS21 assessment for editing');
+          console.log("Loaded today's DASS21 assessment for editing");
         } catch (err) {
           if (err.response?.status !== 404) {
-            console.error('Error loading today\'s assessment:', err);
+            console.error("Error loading today's assessment:", err);
           }
-          // 404 is expected if no assessment today
         }
 
-        // Fetch history
         try {
           const historyResponse = await api.get('/api/assessments/dass21/history', {
-            params: { limit: 50 }
+            params: { limit: 50 },
           });
           setHistory(historyResponse.data.assessments || []);
-          console.log('✅ Loaded DASS21 history');
+          console.log('Loaded DASS21 history');
         } catch (err) {
           console.error('Error loading history:', err);
         }
@@ -81,41 +111,13 @@ const DASS21Assessment = () => {
     loadAssessments();
   }, []);
 
-  
-  const questions = [
-    "I found myself getting upset by quite trivial things.",
-    "I was aware of dryness of my mouth.",
-    "I couldn't seem to experience any positive feeling at all.",
-    "I experienced breathing difficulty (e.g., excessively rapid breathing, breathlessness in the absence of physical exertion).",
-    "I found it difficult to work up the initiative to do things.",
-    "I tended to over-react to situations.",
-    "I experienced trembling (e.g., in the hands).",
-    "I felt that I was using a lot of nervous energy.",
-    "I was worried about situations in which I might panic and make a fool of myself.",
-    "I felt that I had nothing to look forward to.",
-    "I found myself getting upset rather easily.",
-    "I felt that I was rather touchy.",
-    "I was able to laugh and see the funny side of things.",
-    "I felt downhearted and blue.",
-    "I was intolerant of anything that kept me from getting on with what I was doing.",
-    "I felt I was close to panic.",
-    "I was unable to become enthusiastic about anything.",
-    "I felt I wasn't worth much as a person.",
-    "I felt that I was rather irritable.",
-    "I felt I had a lot of nervous energy.",
-    "I thought of myself as a worthless person.",
-  ];
-
-  const responseLabels = [
-    "Did not apply to me at all",
-    "Applied to me to some degree",
-    "Applied to me to a considerable degree",
-    "Applied to me very much",
-  ];
+  const answeredCount = responses.filter((r) => r !== null && r !== undefined).length;
+  const progressPercentage = (answeredCount / 21) * 100;
+  const isComplete = responses.every((r) => r !== null && r !== undefined);
 
   const handleResponseChange = (index, value) => {
     const newResponses = [...responses];
-    newResponses[index] = parseInt(value);
+    newResponses[index] = parseInt(value, 10);
     setResponses(newResponses);
   };
 
@@ -153,22 +155,12 @@ const DASS21Assessment = () => {
     return 'VERY SEVERE';
   };
 
-  const getSeverityColor = (severity) => {
-    const colorMap = {
-      NORMAL: '#388e3c',
-      MILD: '#fbc02d',
-      MODERATE: '#f57c00',
-      SEVERE: '#d32f2f',
-      'VERY SEVERE': '#8b0000',
-    };
-    return colorMap[severity] || '#666';
-  };
-
-  const isComplete = responses.every(r => r !== null && r !== undefined);
+  const getSeverityClass = (severity) =>
+    `student-dass-severity-${severity.toLowerCase().replace(/\s+/g, '-')}`;
 
   const handleSubmit = async () => {
     if (!isComplete) {
-      setError('Please answer all 21 questions before submitting');
+      setError('Please answer all 21 questions before submitting.');
       return;
     }
 
@@ -178,42 +170,36 @@ const DASS21Assessment = () => {
 
     try {
       const requestData = {
-        responses: responses,
+        responses,
       };
-      
-      console.log('📤 Sending DASS21 request:', JSON.stringify(requestData));
-      console.log('📋 Response values:', responses);
-      console.log('✅ Total responses:', responses.length);
-      
+
       let response;
       if (editingId) {
-        // Update existing assessment
-        console.log('🔄 Updating assessment ID:', editingId);
         response = await api.put(`/api/assessments/dass21/${editingId}`, requestData);
-        setSuccess('✅ DASS21 Assessment updated successfully!');
+        setSuccess('DASS-21 self test updated successfully.');
       } else {
-        // Create new assessment
-        console.log('📝 Creating new assessment');
         response = await api.post('/api/assessments/dass21', requestData);
-        setSuccess('✅ DASS21 Assessment submitted successfully!');
+        setSuccess('DASS-21 self test submitted successfully.');
         setEditingId(response.data.id);
       }
 
-      console.log('✅ DASS21 response received:', response.data);
       setResult(response.data);
-      
-      // Refresh history
+
       try {
-        const historyResponse = await api.get('/api/assessments/dass21/history', { params: { limit: 50 } });
+        const historyResponse = await api.get('/api/assessments/dass21/history', {
+          params: { limit: 50 },
+        });
         setHistory(historyResponse.data.assessments || []);
       } catch (err) {
         console.error('Error refreshing history:', err);
       }
     } catch (err) {
-      console.error('❌ DASS21 Error:', err);
-      console.error('Error response:', err.response?.data);
-      console.error('Error status:', err.response?.status);
-      setError('Failed to submit DASS21 assessment: ' + (err.response?.data?.detail || err.message));
+      console.error('DASS21 error:', err);
+      setError(
+        `Failed to submit DASS-21 self test: ${
+          err.response?.data?.detail || err.message
+        }`
+      );
     } finally {
       setSubmitting(false);
     }
@@ -224,364 +210,334 @@ const DASS21Assessment = () => {
     setEditingId(assessment.id);
     setResult(null);
     setSuccess('');
-    console.log('✏️ Editing assessment:', assessment.id);
+    setError('');
   };
 
-  const progressPercentage = (responses.filter(r => r !== null && r !== undefined).length / 21) * 100;
+  const handleStartNew = () => {
+    setResponses(new Array(21).fill(null));
+    setEditingId(null);
+    setResult(null);
+    setSuccess('');
+    setError('');
+  };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+  const formatDate = (dateString) =>
+    new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
-  };
-    
-  // Show loading spinner
-  if (loading) {
-    return (
-      <Container maxWidth="md" sx={{ py: 4, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
-        <Box sx={{ textAlign: 'center' }}>
-          <CircularProgress sx={{ mb: 2 }} />
-          <Typography>Loading your DASS21 assessments...</Typography>
-        </Box>
-      </Container>
-    );
-  }
 
-  // If we have a result, show results view
-  if (result) {
-    return (
-      <Container maxWidth="md" sx={{ py: 2 }}>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate('/dashboard')} sx={{ mb: 2, fontWeight: 'bold', textTransform: 'none' }}>
-          Back to Dashboard
-        </Button>
+  const renderStudentShell = (content) => (
+    <div className="student-shell">
+      <Sidebar />
+      <main className="student-main">
+        <div className="student-page student-dass-page">
+          {content}
+          <EmergencySOS />
+        </div>
+      </main>
+    </div>
+  );
 
-        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => setResult(null)}
-            sx={{ fontWeight: 'bold', textTransform: 'none' }}
-          >
-            ← Back to Assessment
-          </Button>
-        </Box>
-
-        <Paper sx={{ p: 2, background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)' }}>
-          <Box sx={{ textAlign: 'center', mb: 3 }}>
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', color: '#1a237e' }}>
-              🧠 Your DASS21 Assessment Results
-            </Typography>
-            {editingId && (
-              <Typography variant="caption" sx={{ color: '#666' }}>
-                {editingId ? 'Completed: ' + formatDate(result.created_at) : 'New Assessment'}
-              </Typography>
-            )}
-          </Box>
-
-          <Grid container spacing={1.5} sx={{ mb: 3 }}>
-            {/* Depression */}
-            <Grid item xs={12} md={4}>
-              <Card sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
-                <CardContent sx={{ p: 1.5, textAlign: 'center' }}>
-                  <Typography color="text.secondary" variant="caption" sx={{ fontSize: '0.75rem' }}>
-                    😢 Depression
-                  </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold', mt: 0.5, color: getSeverityColor(getSeverityLevel(result.depression_score, 'depression')) }}>
-                    {result.depression_score}
-                  </Typography>
-                  <Chip
-                    label={getSeverityLevel(result.depression_score, 'depression')}
-                    size="small"
-                    sx={{
-                      mt: 1,
-                      backgroundColor: getSeverityColor(getSeverityLevel(result.depression_score, 'depression')),
-                      color: 'white',
-                      fontSize: '0.7rem',
-                    }}
-                  />
-                </CardContent>
-              </Card>
-            </Grid>
-
-            {/* Anxiety */}
-            <Grid item xs={12} md={4}>
-              <Card sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
-                <CardContent sx={{ p: 1.5, textAlign: 'center' }}>
-                  <Typography color="text.secondary" variant="caption" sx={{ fontSize: '0.75rem' }}>
-                    😰 Anxiety
-                  </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold', mt: 0.5, color: getSeverityColor(getSeverityLevel(result.anxiety_score, 'anxiety')) }}>
-                    {result.anxiety_score}
-                  </Typography>
-                  <Chip
-                    label={getSeverityLevel(result.anxiety_score, 'anxiety')}
-                    size="small"
-                    sx={{
-                      mt: 1,
-                      backgroundColor: getSeverityColor(getSeverityLevel(result.anxiety_score, 'anxiety')),
-                      color: 'white',
-                      fontSize: '0.7rem',
-                    }}
-                  />
-                </CardContent>
-              </Card>
-            </Grid>
-
-            {/* Stress */}
-            <Grid item xs={12} md={4}>
-              <Card sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
-                <CardContent sx={{ p: 1.5, textAlign: 'center' }}>
-                  <Typography color="text.secondary" variant="caption" sx={{ fontSize: '0.75rem' }}>
-                    😟 Stress
-                  </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold', mt: 0.5, color: getSeverityColor(getSeverityLevel(result.stress_score, 'stress')) }}>
-                    {result.stress_score}
-                  </Typography>
-                  <Chip
-                    label={getSeverityLevel(result.stress_score, 'stress')}
-                    size="small"
-                    sx={{
-                      mt: 1,
-                      backgroundColor: getSeverityColor(getSeverityLevel(result.stress_score, 'stress')),
-                      color: 'white',
-                      fontSize: '0.7rem',
-                    }}
-                  />
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-
-          {/* Total Score */}
-          <Card sx={{ background: `linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)`, boxShadow: '0 4px 15px rgba(0,0,0,0.1)', mb: 2 }}>
-            <CardContent sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
-                Total DASS21 Score
-              </Typography>
-              <Typography variant="h4" sx={{ color: '#f57c00', fontWeight: 'bold', mb: 2 }}>
-                {result.total_dass21_score} / 126
-              </Typography>
-              <LinearProgress
-                variant="determinate"
-                value={(result.total_dass21_score / 126) * 100}
-                sx={{
-                  height: 10,
-                  borderRadius: 5,
-                  backgroundColor: '#f0f0f0',
-                  '& .MuiLinearProgress-bar': {
-                    backgroundColor: '#f57c00',
-                    borderRadius: 5,
-                  },
-                }}
-              />
-            </CardContent>
-          </Card>
-
-          <Alert severity="info" sx={{ mb: 2, fontSize: '0.85rem' }}>
-            📊 <strong>Next Steps:</strong> Share these results with your counselor to discuss appropriate support strategies tailored to your needs.
-          </Alert>
-
-          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => {
-                setResult(null);
-                setResponses(new Array(21).fill(null));
-              }}
-              sx={{ fontWeight: 'bold', textTransform: 'none' }}
-            >
-              New Assessment
-            </Button>
-
-            <Button
-              variant="outlined"
-              onClick={() => navigate('/dashboard')}
-              sx={{ fontWeight: 'bold', textTransform: 'none' }}
-            >
-              Back to Dashboard
-            </Button>
-          </Box>
-        </Paper>
-
-        {/* History Table - Always Show Below Results */}
-        <Paper sx={{ mt: 3, p: 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-            📋 Previous DASS21 Results
-          </Typography>
-          
-          {history.length === 0 ? (
-            <Typography color="text.secondary">No previous assessments. This is your first DASS21 assessment.</Typography>
-          ) : (
-            <TableContainer sx={{ mt: 2 }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ background: '#f5f5f5' }}>
-                    <TableCell sx={{ fontWeight: 'bold' }}>📅 Date</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>😢 Depression</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>😰 Anxiety</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>😟 Stress</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>📊 Total</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>⚙️ Action</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {history.map((assessment, idx) => (
-                    <TableRow 
-                      key={idx} 
-                      hover
-                      sx={{ 
-                        '&:hover': { backgroundColor: '#f9f9f9' },
-                        backgroundColor: idx === 0 ? '#fffacd' : 'transparent'
-                      }}
-                    >
-                      <TableCell sx={{ fontWeight: idx === 0 ? 'bold' : 'normal' }}>
-                        {formatDate(assessment.created_at)}
-                        {idx === 0 && <span style={{ marginLeft: '8px', fontSize: '0.8rem', color: '#ff9800' }}>Today</span>}
-                      </TableCell>
-                      <TableCell align="right">{assessment.depression_score}</TableCell>
-                      <TableCell align="right">{assessment.anxiety_score}</TableCell>
-                      <TableCell align="right">{assessment.stress_score}</TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{assessment.total_dass21_score}</TableCell>
-                      <TableCell align="center">
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          startIcon={<EditIcon />}
-                          onClick={() => handleEditHistory(assessment)}
-                          sx={{ textTransform: 'none' }}
-                        >
-                          Edit
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </Paper>
-
-        <Box sx={{ mt: 3, pb: 2, display: 'flex', gap: 2, justifyContent: 'center' }}>
-          <Button
-            variant="outlined"
-            onClick={() => navigate('/dashboard')}
-            sx={{ fontWeight: 'bold', textTransform: 'none' }}
-          >
-            Back to Dashboard
-          </Button>
-        </Box>
-      </Container>
-    );
-  }
-
-  // History Table - Removed (moved to results view)
-  return (
-    <Container maxWidth="md" sx={{ py: 2 }}>
-      <Button startIcon={<ArrowBack />} onClick={() => navigate('/dashboard')} sx={{ mb: 2, fontWeight: 'bold', textTransform: 'none' }}>
+  const TopBar = ({ showAssessmentAction = false }) => (
+    <div className="student-dass-topbar">
+      <Button
+        startIcon={<ArrowBack />}
+        onClick={() => navigate('/dashboard')}
+        className="student-dass-back"
+      >
         Back to Dashboard
       </Button>
+      {showAssessmentAction && (
+        <Button
+          startIcon={<Assessment />}
+          variant="contained"
+          onClick={() => setResult(null)}
+          className="student-dass-primary-action"
+        >
+          Back to Self Test
+        </Button>
+      )}
+    </div>
+  );
 
-      <Paper sx={{ p: 2, background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)' }}>
-        <Box sx={{ mb: 2, pb: 2, borderBottom: '2px solid #1976d2' }}>
-          <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', color: '#1a237e' }}>
-            🧠 DASS21 Assessment
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Depression, Anxiety, and Stress Scale - 21 Items
-          </Typography>
-        </Box>
+  const SeverityCard = ({ label, score, type }) => {
+    const severity = getSeverityLevel(score, type);
 
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+    return (
+      <Card className="student-dass-score-card">
+        <CardContent>
+          <Typography className="student-dass-score-label">{label}</Typography>
+          <Typography className="student-dass-score-value">{score}</Typography>
+          <Chip
+            label={severity}
+            className={`student-dass-chip ${getSeverityClass(severity)}`}
+          />
+        </CardContent>
+      </Card>
+    );
+  };
 
-        {/* Progress Bar */}
-        <Box sx={{ mb: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-            <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
-              Progress
+  const HistoryTable = () => (
+    <Card className="student-dass-card">
+      <CardContent>
+        <div className="student-dass-section-head">
+          <span className="student-dass-card-icon">
+            <History />
+          </span>
+          <div>
+            <Typography className="student-dass-section-title">
+              Previous DASS-21 Results
             </Typography>
-            <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
-              {responses.filter(r => r !== null && r !== undefined).length} / 21
+            <Typography className="student-dass-muted">
+              Review your submitted self-test history.
             </Typography>
-          </Box>
+          </div>
+        </div>
+
+        {history.length === 0 ? (
+          <div className="student-dass-empty">
+            <Typography>No previous DASS-21 results available.</Typography>
+          </div>
+        ) : (
+          <TableContainer className="student-dass-table-wrap">
+            <Table size="small" className="student-dass-table">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Date</TableCell>
+                  <TableCell align="right">Depression</TableCell>
+                  <TableCell align="right">Anxiety</TableCell>
+                  <TableCell align="right">Stress</TableCell>
+                  <TableCell align="center">Total</TableCell>
+                  <TableCell align="center">Action</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {history.map((assessment, idx) => (
+                  <TableRow key={assessment.id || idx} hover>
+                    <TableCell>
+                      <div className="student-dass-date-cell">
+                        <span>{formatDate(assessment.created_at)}</span>
+                        {idx === 0 && <Chip label="Latest" size="small" />}
+                      </div>
+                    </TableCell>
+                    <TableCell align="right">{assessment.depression_score}</TableCell>
+                    <TableCell align="right">{assessment.anxiety_score}</TableCell>
+                    <TableCell align="right">{assessment.stress_score}</TableCell>
+                    <TableCell align="center" className="student-dass-total-cell">
+                      {assessment.total_dass21_score}
+                    </TableCell>
+                    <TableCell align="center">
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<EditIcon />}
+                        onClick={() => handleEditHistory(assessment)}
+                        className="student-dass-secondary-action"
+                      >
+                        Edit
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </CardContent>
+    </Card>
+  );
+
+  if (loading) {
+    return renderStudentShell(
+      <div className="student-dass-loading">
+        <CircularProgress />
+        <Typography>Loading your DASS-21 self test...</Typography>
+      </div>
+    );
+  }
+
+  if (result) {
+    return renderStudentShell(
+      <>
+        <TopBar showAssessmentAction />
+
+        <section className="student-dass-hero student-dass-hero-results">
+          <div>
+            <p className="student-dass-eyebrow">Assessment Results</p>
+            <h1>Your DASS-21 Summary</h1>
+            <p>
+              Your latest scores are saved and available for discussion with your
+              counselor.
+            </p>
+          </div>
+          <CheckCircle className="student-dass-hero-icon" />
+        </section>
+
+        {success && <Alert severity="success">{success}</Alert>}
+
+        <div className="student-dass-score-grid">
+          <SeverityCard
+            label="Depression"
+            score={result.depression_score}
+            type="depression"
+          />
+          <SeverityCard label="Anxiety" score={result.anxiety_score} type="anxiety" />
+          <SeverityCard label="Stress" score={result.stress_score} type="stress" />
+        </div>
+
+        <Card className="student-dass-total-card">
+          <CardContent>
+            <div className="student-dass-total-head">
+              <div>
+                <Typography className="student-dass-total-label">
+                  Total DASS-21 Score
+                </Typography>
+                <Typography className="student-dass-total-value">
+                  {result.total_dass21_score} / 126
+                </Typography>
+              </div>
+              <Chip label={formatDate(result.created_at)} />
+            </div>
+            <LinearProgress
+              variant="determinate"
+              value={(result.total_dass21_score / 126) * 100}
+              className="student-dass-progress"
+            />
+          </CardContent>
+        </Card>
+
+        <Alert severity="info" className="student-dass-alert">
+          DASS-21 is a screening tool, not a diagnosis. Share these results with
+          your counselor for proper interpretation and support planning.
+        </Alert>
+
+        <div className="student-dass-actions">
+          <Button
+            variant="outlined"
+            startIcon={<RestartAlt />}
+            onClick={handleStartNew}
+            className="student-dass-secondary-action"
+          >
+            New Self Test
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => navigate('/dashboard')}
+            className="student-dass-primary-action"
+          >
+            Return to Dashboard
+          </Button>
+        </div>
+
+        <HistoryTable />
+      </>
+    );
+  }
+
+  return renderStudentShell(
+    <>
+      <TopBar />
+
+      <section className="student-dass-hero">
+        <div>
+          <p className="student-dass-eyebrow">
+            {editingId ? 'Update Self Test' : 'DASS-21 Self Test'}
+          </p>
+          <h1>Depression, Anxiety, and Stress Scale</h1>
+          <p>
+            Answer each item based on how much it applied to you recently. Your
+            progress is saved when you submit all 21 responses.
+          </p>
+        </div>
+        <Psychology className="student-dass-hero-icon" />
+      </section>
+
+      {error && <Alert severity="error">{error}</Alert>}
+      {success && <Alert severity="success">{success}</Alert>}
+
+      <Card className="student-dass-card">
+        <CardContent>
+          <div className="student-dass-progress-head">
+            <div>
+              <Typography className="student-dass-section-title">
+                Assessment Progress
+              </Typography>
+              <Typography className="student-dass-muted">
+                {answeredCount} of 21 questions completed
+              </Typography>
+            </div>
+            <Chip label={`${Math.round(progressPercentage)}%`} />
+          </div>
           <LinearProgress
             variant="determinate"
             value={progressPercentage}
-            sx={{
-              height: 8,
-              borderRadius: 4,
-              backgroundColor: '#f0f0f0',
-              '& .MuiLinearProgress-bar': {
-                backgroundColor: '#1976d2',
-                borderRadius: 4,
-              },
-            }}
+            className="student-dass-progress"
           />
-        </Box>
+        </CardContent>
+      </Card>
 
-        {/* Questions */}
-        <Box sx={{ mb: 2 }}>
-          {questions.map((question, index) => (
-            <Card key={index} sx={{ mb: 1.5, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-              <CardContent sx={{ p: 1.5 }}>
-                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1, color: '#1a237e' }}>
-                  Q{index + 1}. {question}
-                </Typography>
-                <RadioGroup
-                  row
-                  value={responses[index] !== null && responses[index] !== undefined ? responses[index].toString() : ''}
-                  onChange={(e) => handleResponseChange(index, e.target.value)}
-                  sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}
-                >
-                  {responseLabels.map((label, idx) => (
-                    <FormControlLabel
-                      key={idx}
-                      value={idx.toString()}
-                      control={<Radio size="small" />}
-                      label={<Typography variant="caption" sx={{ fontSize: '0.7rem' }}>{label}</Typography>}
-                      sx={{ m: 0 }}
-                    />
-                  ))}
-                </RadioGroup>
-              </CardContent>
-            </Card>
-          ))}
-        </Box>
+      <div className="student-dass-question-list">
+        {questions.map((question, index) => (
+          <Card key={question} className="student-dass-question-card">
+            <CardContent>
+              <div className="student-dass-question-head">
+                <span>Q{index + 1}</span>
+                <Typography>{question}</Typography>
+              </div>
+              <RadioGroup
+                row
+                value={
+                  responses[index] !== null && responses[index] !== undefined
+                    ? responses[index].toString()
+                    : ''
+                }
+                onChange={(event) => handleResponseChange(index, event.target.value)}
+                className="student-dass-options"
+              >
+                {responseLabels.map((label, idx) => (
+                  <FormControlLabel
+                    key={label}
+                    value={idx.toString()}
+                    control={<Radio size="small" />}
+                    label={label}
+                  />
+                ))}
+              </RadioGroup>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-        {/* Submit Button */}
-        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 3, pt: 2, borderTop: '2px solid #e0e0e0' }}>
-          <Button
-            variant="outlined"
-            onClick={() => navigate('/dashboard')}
-            sx={{ fontWeight: 'bold', textTransform: 'none', px: 3 }}
-          >
-            Cancel
-          </Button>
-
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleSubmit}
-            disabled={submitting || !isComplete}
-            sx={{ fontWeight: 'bold', textTransform: 'none', px: 4 }}
-          >
-            {submitting 
-              ? 'Updating...' 
-              : isComplete 
-              ? editingId 
-                ? '✏️ Update Assessment' 
-                : '✅ Submit Assessment'
-              : '⏳ Complete All Questions'
-            }
-          </Button>
-        </Box>
-      </Paper>
-    </Container>
+      <div className="student-dass-actions">
+        <Button
+          variant="outlined"
+          onClick={() => navigate('/dashboard')}
+          className="student-dass-secondary-action"
+          disabled={submitting}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          startIcon={<Save />}
+          onClick={handleSubmit}
+          disabled={submitting || !isComplete}
+          className="student-dass-primary-action"
+        >
+          {submitting
+            ? 'Saving...'
+            : editingId
+              ? 'Update Self Test'
+              : isComplete
+                ? 'Submit Self Test'
+                : 'Complete All Questions'}
+        </Button>
+      </div>
+    </>
   );
 };
 

@@ -12,7 +12,7 @@ import {
   XIcon,
   HeartPulseIcon,
 } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion as Motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../context/AuthContext'
 
 const navItems = [
@@ -33,8 +33,9 @@ const navItems = [
   },
   {
     path: '/dass21',
-    label: 'DASS-21 Test',
+    label: 'DASS-21 Self Test',
     icon: ClipboardListIcon,
+    activePaths: ['/dass21', '/dass21-assessment'],
   },
   {
     path: '/chat-support',
@@ -75,7 +76,9 @@ export function Sidebar() {
       <nav className="student-sidebar-nav">
         {navItems.map((item) => {
           const Icon = item.icon
-          const isActive = location.pathname === item.path
+          const isActive = item.activePaths
+            ? item.activePaths.includes(location.pathname)
+            : location.pathname === item.path
           return (
             <Link
               key={item.path}
@@ -125,7 +128,7 @@ export function Sidebar() {
       <AnimatePresence>
         {isMobileOpen && (
           <>
-            <motion.div
+            <Motion.div
               initial={{
                 opacity: 0,
               }}
@@ -138,7 +141,7 @@ export function Sidebar() {
               onClick={() => setIsMobileOpen(false)}
               className="lg:hidden fixed inset-0 bg-black/50 z-40"
             />
-            <motion.div
+            <Motion.div
               initial={{
                 x: -280,
               }}
@@ -156,7 +159,7 @@ export function Sidebar() {
               className="lg:hidden fixed top-0 left-0 student-sidebar-mobile h-screen z-50"
             >
               {sidebarContent}
-            </motion.div>
+            </Motion.div>
           </>
         )}
       </AnimatePresence>
