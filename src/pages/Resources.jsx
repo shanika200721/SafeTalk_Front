@@ -1,287 +1,312 @@
-import React, { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ArrowLeftIcon,
-  PhoneIcon,
-  MessageSquareIcon,
   BookOpenIcon,
-  HeartIcon,
-  SearchIcon,
   BuildingIcon,
-} from 'lucide-react'
-import { motion } from 'framer-motion'
-import { Sidebar } from '../components/layout/Sidebar'
-import { EmergencySOS } from '../components/common/EmergencySOS'
+  HeartIcon,
+  MessageSquareIcon,
+  PhoneIcon,
+  SearchIcon,
+  ShieldCheckIcon,
+} from 'lucide-react';
+import { Sidebar } from '../components/layout/Sidebar';
+import { EmergencySOS } from '../components/common/EmergencySOS';
 
 const crisisHotlines = [
   {
-    name: '988 Suicide & Crisis Lifeline',
-    description: 'Free, confidential support 24/7 for people in distress',
-    phone: '988',
+    name: '1333 Crisis Support Line',
+    description: '24/7 toll-free and confidential, anonymous support by phone.',
+    phone: '1333',
+    website: 'https://1333.lk',
     icon: PhoneIcon,
   },
-  {
-    name: 'Crisis Text Line',
-    description: 'Text HOME to connect with a crisis counselor',
-    phone: '741741',
-    icon: MessageSquareIcon,
-  },
-  {
-    name: 'The Trevor Project',
-    description: 'Crisis support for LGBTQ+ youth',
-    phone: '1-866-488-7386',
-    icon: PhoneIcon,
-  },
-  {
-    name: 'SAMHSA National Helpline',
-    description: 'Treatment referral and information service',
-    phone: '1-800-662-4357',
-    icon: PhoneIcon,
-  },
-]
+];
 
 const articles = [
   { title: 'Managing Exam Stress', category: 'Academic', color: 'blue' },
-  {
-    title: 'Building Healthy Sleep Habits',
-    category: 'Wellness',
-    color: 'green',
-  },
-  {
-    title: 'Mindfulness for Beginners',
-    category: 'Mental Health',
-    color: 'purple',
-  },
+  { title: 'Building Healthy Sleep Habits', category: 'Wellness', color: 'green' },
+  { title: 'Mindfulness for Beginners', category: 'Mental Health', color: 'purple' },
   { title: 'Coping with Anxiety', category: 'Mental Health', color: 'purple' },
   { title: 'Social Connection Tips', category: 'Wellness', color: 'green' },
+  { title: 'Time Management Strategies', category: 'Academic', color: 'blue' },
+];
+
+const campusResources = [
   {
-    title: 'Time Management Strategies',
-    category: 'Academic',
-    color: 'blue',
+    name: 'University Counseling Center',
+    description: 'Free counseling services for students',
+    hours: 'Mon-Fri, 9AM-5PM',
+    phone: '(555) 123-4567',
+    location: 'Student Services Building, Room 200',
   },
-]
+  {
+    name: 'Student Health Services',
+    description: 'Medical and mental health support',
+    hours: 'Mon-Fri, 8AM-6PM',
+    phone: '(555) 123-4568',
+    location: 'Health Center, Main Campus',
+  },
+];
 
 const copingStrategies = [
-  {
-    title: 'Deep Breathing',
-    description: 'Practice 4-7-8 breathing technique',
-  },
-  {
-    title: 'Physical Activity',
-    description: 'Go for a walk or do light exercise',
-  },
-  {
-    title: 'Journaling',
-    description: 'Write down your thoughts and feelings',
-  },
-  {
-    title: 'Social Support',
-    description: 'Reach out to friends or family',
-  },
-  {
-    title: 'Mindfulness',
-    description: 'Try meditation or grounding exercises',
-  },
-  {
-    title: 'Creative Expression',
-    description: 'Engage in art, music, or writing',
-  },
-]
+  { title: 'Deep Breathing', description: 'Practice 4-7-8 breathing technique' },
+  { title: 'Physical Activity', description: 'Go for a walk or do light exercise' },
+  { title: 'Journaling', description: 'Write down your thoughts and feelings' },
+  { title: 'Social Support', description: 'Reach out to friends or family' },
+  { title: 'Mindfulness', description: 'Try meditation or grounding exercises' },
+  { title: 'Creative Expression', description: 'Engage in art, music, or writing' },
+];
 
 const categoryClassMap = {
-  blue: 'bg-blue-100 text-blue-700',
-  green: 'bg-green-100 text-green-700',
-  purple: 'bg-purple-100 text-purple-700',
-}
+  blue: 'student-resource-chip-blue',
+  green: 'student-resource-chip-green',
+  purple: 'student-resource-chip-purple',
+};
 
 const Resources = () => {
-  const [searchQuery, setSearchQuery] = useState('')
-  const normalizedQuery = searchQuery.trim().toLowerCase()
+  const [searchQuery, setSearchQuery] = useState('');
+  const normalizedQuery = searchQuery.trim().toLowerCase();
 
   const filteredArticles = useMemo(() => {
-    if (!normalizedQuery) return articles
+    if (!normalizedQuery) return articles;
     return articles.filter(
       (article) =>
         article.title.toLowerCase().includes(normalizedQuery) ||
         article.category.toLowerCase().includes(normalizedQuery)
-    )
-  }, [normalizedQuery])
+    );
+  }, [normalizedQuery]);
 
   const filteredStrategies = useMemo(() => {
-    if (!normalizedQuery) return copingStrategies
+    if (!normalizedQuery) return copingStrategies;
     return copingStrategies.filter(
       (strategy) =>
         strategy.title.toLowerCase().includes(normalizedQuery) ||
         strategy.description.toLowerCase().includes(normalizedQuery)
-    )
-  }, [normalizedQuery])
+    );
+  }, [normalizedQuery]);
+
+  const filteredCampusResources = useMemo(() => {
+    if (!normalizedQuery) return campusResources;
+    return campusResources.filter(
+      (resource) =>
+        resource.name.toLowerCase().includes(normalizedQuery) ||
+        resource.description.toLowerCase().includes(normalizedQuery) ||
+        resource.location.toLowerCase().includes(normalizedQuery)
+    );
+  }, [normalizedQuery]);
 
   const filteredHotlines = useMemo(() => {
-    if (!normalizedQuery) return crisisHotlines
+    if (!normalizedQuery) return crisisHotlines;
     return crisisHotlines.filter(
       (hotline) =>
         hotline.name.toLowerCase().includes(normalizedQuery) ||
         hotline.description.toLowerCase().includes(normalizedQuery) ||
         hotline.phone.includes(normalizedQuery)
-    )
-  }, [normalizedQuery])
+    );
+  }, [normalizedQuery]);
+
+  const totalResults =
+    filteredHotlines.length +
+    filteredArticles.length +
+    filteredCampusResources.length +
+    filteredStrategies.length;
 
   return (
     <div className="student-shell">
       <Sidebar />
       <main className="student-main">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="student-page"
-        >
+        <div className="student-page student-resources-page">
           <Link to="/dashboard" className="student-top-link">
             <ArrowLeftIcon className="w-4 h-4" />
             <span>Back to Dashboard</span>
           </Link>
 
-          <div className="student-surface p-8 mt-5">
-            <div className="student-page-heading">
-              <div className="student-page-badge bg-pink-100 text-pink-700">
-                Help
-              </div>
-              <div>
-                <h1 className="student-panel-title">Resources</h1>
-                <p className="student-panel-subtitle">
-                  Find help, information, and support
-                </p>
-              </div>
+          <section className="student-resources-hero">
+            <div>
+              <p className="student-resources-eyebrow">Support Library</p>
+              <h1>Resources</h1>
+              <p>
+                Find crisis support, campus services, self-help articles, and
+                practical coping strategies in one organized place.
+              </p>
             </div>
+            <div className="student-resources-hero-card">
+              <ShieldCheckIcon className="w-7 h-7" />
+              <span>Confidential support options</span>
+            </div>
+          </section>
 
+          <section className="student-resources-search-panel">
             <div className="student-resource-search">
-              <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <SearchIcon className="student-resource-search-icon" />
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search resources..."
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search resources, topics, or services..."
                 className="student-search-input"
               />
             </div>
+            <p className="student-resources-search-count">
+              {normalizedQuery ? `${totalResults} matching resources` : 'Browse all resources'}
+            </p>
+          </section>
 
-            <section className="student-section">
-              <h2 className="student-section-heading">
-                <PhoneIcon className="w-6 h-6 text-red-600" />
-                Crisis Hotlines
-              </h2>
-              <div className="student-resource-grid">
-                {filteredHotlines.map((hotline, index) => {
-                  const Icon = hotline.icon
-                  return (
-                    <div key={index} className="student-resource-card student-hotline-card">
-                      <div className="student-hotline-icon">
-                        <Icon className="w-6 h-6" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-2xl font-bold text-slate-900 mb-2">
-                          {hotline.name}
-                        </h3>
-                        <p className="text-slate-600 text-lg leading-7">
-                          {hotline.description}
-                        </p>
+          <div className="student-resources-overview-grid">
+            <a href="#crisis-support" className="student-resources-overview-card">
+              <PhoneIcon className="w-5 h-5" />
+              <span>Crisis Support</span>
+            </a>
+            <a href="#self-help" className="student-resources-overview-card">
+              <BookOpenIcon className="w-5 h-5" />
+              <span>Self-Help</span>
+            </a>
+            <a href="#campus-support" className="student-resources-overview-card">
+              <BuildingIcon className="w-5 h-5" />
+              <span>Campus Support</span>
+            </a>
+            <a href="#coping-tools" className="student-resources-overview-card">
+              <HeartIcon className="w-5 h-5" />
+              <span>Coping Tools</span>
+            </a>
+          </div>
+
+          <section id="crisis-support" className="student-resources-section">
+            <div className="student-resources-section-head">
+              <span className="student-resources-section-icon student-resources-section-icon-red">
+                <PhoneIcon className="w-5 h-5" />
+              </span>
+              <div>
+                <h2>Crisis Support</h2>
+                <p>Immediate emotional support options.</p>
+              </div>
+            </div>
+            <div className="student-resource-grid">
+              {filteredHotlines.map((hotline) => {
+                const Icon = hotline.icon;
+                return (
+                  <article key={hotline.name} className="student-resource-card student-hotline-card">
+                    <div className="student-hotline-icon">
+                      <Icon className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3>{hotline.name}</h3>
+                      <p>{hotline.description}</p>
+                      <div className="student-resource-actions">
                         <a href={`tel:${hotline.phone}`} className="student-phone-pill">
                           <PhoneIcon className="w-4 h-4" />
                           {hotline.phone}
                         </a>
+                        <a
+                          href={hotline.website}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="student-resource-link"
+                        >
+                          Visit website
+                        </a>
                       </div>
                     </div>
-                  )
-                })}
-              </div>
-            </section>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
 
-            <section className="student-section">
-              <h2 className="student-section-heading">
-                <BookOpenIcon className="w-6 h-6 text-blue-600" />
-                Self-Help Articles
-              </h2>
-              <div className="student-article-grid">
-                {filteredArticles.map((article, index) => (
-                  <div key={index} className="student-resource-card student-article-card">
-                    <span
-                      className={`student-article-chip ${
-                        categoryClassMap[article.color] || categoryClassMap.blue
-                      }`}
-                    >
-                      {article.category}
-                    </span>
-                    <h3 className="text-2xl font-bold text-slate-900 leading-tight">
-                      {article.title}
-                    </h3>
-                  </div>
-                ))}
+          <section id="self-help" className="student-resources-section">
+            <div className="student-resources-section-head">
+              <span className="student-resources-section-icon student-resources-section-icon-blue">
+                <BookOpenIcon className="w-5 h-5" />
+              </span>
+              <div>
+                <h2>Self-Help Articles</h2>
+                <p>Short topics for everyday student well-being.</p>
               </div>
-            </section>
+            </div>
+            <div className="student-article-grid">
+              {filteredArticles.map((article) => (
+                <article key={article.title} className="student-resource-card student-article-card">
+                  <span
+                    className={`student-article-chip ${
+                      categoryClassMap[article.color] || categoryClassMap.blue
+                    }`}
+                  >
+                    {article.category}
+                  </span>
+                  <h3>{article.title}</h3>
+                </article>
+              ))}
+            </div>
+          </section>
 
-            <section className="student-section">
-              <h2 className="student-section-heading">
-                <BuildingIcon className="w-6 h-6 text-teal-600" />
-                Campus Resources
-              </h2>
-              <div className="student-campus-grid">
-                <div className="student-resource-card student-campus-card">
-                  <h3 className="text-2xl font-bold text-slate-900 mb-2">
-                    University Counseling Center
-                  </h3>
-                  <p className="text-slate-600 text-lg mb-4">
-                    Free counseling services for students
-                  </p>
-                  <p className="student-campus-meta">
-                    <strong>Hours:</strong> Mon-Fri, 9AM-5PM
-                    <br />
-                    <strong>Phone:</strong> (555) 123-4567
-                    <br />
-                    <strong>Location:</strong> Student Services Building, Room 200
-                  </p>
-                </div>
-                <div className="student-resource-card student-campus-card">
-                  <h3 className="text-2xl font-bold text-slate-900 mb-2">
-                    Student Health Services
-                  </h3>
-                  <p className="text-slate-600 text-lg mb-4">
-                    Medical and mental health support
-                  </p>
-                  <p className="student-campus-meta">
-                    <strong>Hours:</strong> Mon-Fri, 8AM-6PM
-                    <br />
-                    <strong>Phone:</strong> (555) 123-4568
-                    <br />
-                    <strong>Location:</strong> Health Center, Main Campus
-                  </p>
-                </div>
+          <section id="campus-support" className="student-resources-section">
+            <div className="student-resources-section-head">
+              <span className="student-resources-section-icon student-resources-section-icon-teal">
+                <BuildingIcon className="w-5 h-5" />
+              </span>
+              <div>
+                <h2>Campus Resources</h2>
+                <p>Student services available through campus support teams.</p>
               </div>
-            </section>
+            </div>
+            <div className="student-campus-grid">
+              {filteredCampusResources.map((resource) => (
+                <article key={resource.name} className="student-resource-card student-campus-card">
+                  <h3>{resource.name}</h3>
+                  <p>{resource.description}</p>
+                  <dl className="student-campus-meta">
+                    <div>
+                      <dt>Hours</dt>
+                      <dd>{resource.hours}</dd>
+                    </div>
+                    <div>
+                      <dt>Phone</dt>
+                      <dd>{resource.phone}</dd>
+                    </div>
+                    <div>
+                      <dt>Location</dt>
+                      <dd>{resource.location}</dd>
+                    </div>
+                  </dl>
+                </article>
+              ))}
+            </div>
+          </section>
 
-            <section className="student-section">
-              <h2 className="student-section-heading">
-                <HeartIcon className="w-6 h-6 text-pink-600" />
-                Coping Strategies
-              </h2>
-              <div className="student-strategy-grid">
-                {filteredStrategies.map((strategy, index) => (
-                  <div key={index} className="student-resource-card student-strategy-card">
-                    <h3 className="text-2xl font-bold text-slate-900 mb-2">
-                      {strategy.title}
-                    </h3>
-                    <p className="text-slate-600 text-lg leading-7">
-                      {strategy.description}
-                    </p>
-                  </div>
-                ))}
+          <section id="coping-tools" className="student-resources-section">
+            <div className="student-resources-section-head">
+              <span className="student-resources-section-icon student-resources-section-icon-pink">
+                <HeartIcon className="w-5 h-5" />
+              </span>
+              <div>
+                <h2>Coping Strategies</h2>
+                <p>Simple actions you can try when the day feels heavy.</p>
               </div>
-            </section>
-          </div>
+            </div>
+            <div className="student-strategy-grid">
+              {filteredStrategies.map((strategy) => (
+                <article key={strategy.title} className="student-resource-card student-strategy-card">
+                  <h3>{strategy.title}</h3>
+                  <p>{strategy.description}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          {totalResults === 0 && (
+            <div className="student-empty-state student-resource-empty">
+              <MessageSquareIcon className="student-empty-icon" />
+              <h3>No matching resources</h3>
+              <p>Try a different keyword or clear the search field.</p>
+            </div>
+          )}
 
           <EmergencySOS />
-        </motion.div>
+        </div>
       </main>
     </div>
-  )
-}
+  );
+};
 
-export default Resources
+export default Resources;
