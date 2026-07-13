@@ -1,0 +1,12 @@
+export { default as CounselorDashboard } from './CounselorDashboard';
+export { default as ViewStudentProfile } from './ViewStudentProfile';
+export { default as AllStudentsView } from './AllStudentsView';
+export { default as EnhancedStudentProfileView } from './EnhancedStudentProfileView';
+export { default as StudentDetail } from './StudentDetail';
+export { default as AlertsView } from './AlertsView';
+export { default as SessionsView } from './SessionsView';
+export { default as ReportsView } from './ReportsView';
+export { default as ScheduleView } from './ScheduleView';
+export { default as HistoryView } from './HistoryView';
+export { default as AnalyticsView } from './AnalyticsView';
+export { default as SettingsView } from './SettingsView';
