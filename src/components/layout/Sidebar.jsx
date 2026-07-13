@@ -41,6 +41,13 @@ const navItems = [
     path: '/chat-support',
     label: 'Chat Support',
     icon: MessageCircleIcon,
+    activePaths: [
+      '/chat-support',
+      '/chat-with-counselor',
+      '/chat',
+      '/safetalk-bot',
+      '/chat-interface',
+    ],
   },
   {
     path: '/resources',

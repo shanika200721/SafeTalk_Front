@@ -1,85 +1,71 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Box,
-  TextField,
-  Button,
-  Typography,
-  Paper,
-  Grid,
-  Avatar,
-  Divider,
-  CircularProgress,
   Alert,
-  IconButton,
-  Tooltip,
+  Avatar,
   Badge,
+  Button,
   Chip,
+  CircularProgress,
+  Divider,
+  IconButton,
   List,
   ListItem,
   ListItemButton,
   ListItemText,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Menu,
   MenuItem,
+  TextField,
+  Tooltip,
+  Typography,
 } from '@mui/material';
 import {
-  Send as SendIcon,
   ArrowBack as ArrowBackIcon,
-  Refresh as RefreshIcon,
-  Close as CloseIcon,
-  Call as CallIcon,
-  Videocam as VideoCallIcon,
-  Mic as MicIcon,
   AttachFile as AttachFileIcon,
+  Call as CallIcon,
+  Close as CloseIcon,
+  Menu as MenuIcon,
+  Mic as MicIcon,
   MoreVert as MoreVertIcon,
+  Refresh as RefreshIcon,
+  Send as SendIcon,
+  Videocam as VideoCallIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { Sidebar } from '../components/layout/Sidebar';
+import { EmergencySOS } from '../components/common/EmergencySOS';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import VideoBackground from '../components/common/VideoBackground';
 
-// Format message text into readable paragraphs
 const formatMessageText = (text) => {
   if (!text) return [];
   return text
     .split(/(?<=[.!?])\s+(?=[A-Z])|(?<=[.!?])\n/g)
-    .filter(p => p.trim().length > 0);
+    .filter((paragraph) => paragraph.trim().length > 0);
 };
 
 const ChatSupport = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  
-  // State
+
   const [conversations, setConversations] = useState([]);
   const [allCounselors, setAllCounselors] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState('');
   const [counselorInfo, setCounselorInfo] = useState(null);
-  
-  // UI state
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
-  
-  // Call and media state
-  const [callDialogOpen, setCallDialogOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState(null);
-  
-  // Refs
+
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const streamRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // Auto-scroll to bottom
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -88,22 +74,22 @@ const ChatSupport = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Load conversations and counselors on mount
   useEffect(() => {
-    loadData(true); // true = initial load
-    const interval = setInterval(() => loadData(false), 5000); // false = background refresh
+    loadData(true);
+    const interval = setInterval(() => loadData(false), 5000);
     return () => clearInterval(interval);
   }, []);
 
-  // Restore selected conversation from localStorage on mount
   useEffect(() => {
     const savedConversationId = localStorage.getItem('selectedChatConversationId');
     if (savedConversationId && conversations.length > 0) {
-      // Try to find it in conversations first (conversations use user_id)
-      let selected = conversations.find(c => c.user_id === parseInt(savedConversationId));
+      let selected = conversations.find(
+        (conversation) => conversation.user_id === parseInt(savedConversationId, 10)
+      );
       if (!selected && allCounselors.length > 0) {
-        // If not in conversations, try counselors (counselors use id)
-        selected = allCounselors.find(c => c.id === parseInt(savedConversationId));
+        selected = allCounselors.find(
+          (counselor) => counselor.id === parseInt(savedConversationId, 10)
+        );
       }
       if (selected) {
         setSelectedConversation(selected);
@@ -111,31 +97,17 @@ const ChatSupport = () => {
     }
   }, [conversations, allCounselors]);
 
-  // Load messages when conversation selected
-  useEffect(() => {
-    if (selectedConversation) {
-      loadMessages();
-      // Save selected conversation to localStorage for restoration on refresh
-      localStorage.setItem('selectedChatConversationId', selectedConversation.user_id || selectedConversation.id);
-      // Counselor info is already stored in selectedConversation
-      // No need to look it up in conversations/allCounselors because those change constantly
-      setCounselorInfo(selectedConversation);
-    }
-  }, [selectedConversation]); // Only depend on selectedConversation, NOT on conversations/allCounselors
-
   const loadData = async (isInitialLoad = false) => {
     try {
-      // Only show loading on initial load, not on background refreshes
       if (isInitialLoad) {
         setLoading(true);
       }
-      
-      // Load both conversations and available counselors in parallel
+
       const [convsResponse, counselorsResponse] = await Promise.all([
         api.get('/api/chat/conversations').catch(() => ({ data: [] })),
-        api.get('/api/chat/counselors').catch(() => ({ data: [] }))
+        api.get('/api/chat/counselors').catch(() => ({ data: [] })),
       ]);
-      
+
       setConversations(convsResponse.data || []);
       setAllCounselors(counselorsResponse.data || []);
       setError('');
@@ -151,146 +123,129 @@ const ChatSupport = () => {
     }
   };
 
-  const loadMessages = async () => {
+  const loadMessages = useCallback(async () => {
     if (!selectedConversation) return;
+
     try {
       const receiverId = selectedConversation.user_id || selectedConversation.id;
-      console.log(`📨 Loading messages from counselor ID: ${receiverId}`);
+      console.log(`Loading messages from counselor ID: ${receiverId}`);
       const response = await api.get(`/api/chat/messages/${receiverId}`, {
-        params: { limit: 100 }
+        params: { limit: 100 },
       });
-      console.log(`✅ Loaded ${response.data?.length || 0} messages`);
       setMessages(response.data || []);
     } catch (err) {
       console.error('Error loading messages:', err);
-      // If no messages yet, just clear the list (new conversation)
       setMessages([]);
     }
-  };
+  }, [selectedConversation]);
+
+  useEffect(() => {
+    if (selectedConversation) {
+      loadMessages();
+      localStorage.setItem(
+        'selectedChatConversationId',
+        selectedConversation.user_id || selectedConversation.id
+      );
+      setCounselorInfo(selectedConversation);
+    }
+  }, [selectedConversation, loadMessages]);
 
   const handleSendMessage = async () => {
-    if (!messageText.trim() || !selectedConversation) {
-      console.warn('⚠️ Cannot send: messageText empty or no selectedConversation');
-      return;
-    }
+    if (!messageText.trim() || !selectedConversation) return;
 
     const msgContent = messageText.trim();
-    let tempMsgId; // Declare outside try block so it's accessible in catch block
-    
+    let tempMsgId;
+
     try {
       setSending(true);
-      
-      // Debug logging
-      console.log('🔍 Selected Conversation:', selectedConversation);
-      console.log('🔍 Selected Conversation ID type:', typeof selectedConversation.id, 'value:', selectedConversation.id);
-      
-      // Optimistically add message
       tempMsgId = Date.now();
+
       const tempMsg = {
         id: tempMsgId,
-        sender_id: user?.id ? parseInt(user.id) : null,
+        sender_id: user?.id ? parseInt(user.id, 10) : null,
         message: msgContent,
         created_at: new Date().toISOString(),
-        message_type: 'text'
+        message_type: 'text',
       };
-      
-      setMessages([...messages, tempMsg]);
+
+      setMessages((prev) => [...prev, tempMsg]);
       setMessageText('');
 
-      // Send to API
-      // API returns conversations with 'user_id', but available counselors use 'id'
-      const receiverId = parseInt(selectedConversation.user_id || selectedConversation.id);
-      if (isNaN(receiverId)) {
-        throw new Error(`Invalid receiver_id: selectedConversation=${JSON.stringify(selectedConversation)}`);
+      const receiverId = parseInt(
+        selectedConversation.user_id || selectedConversation.id,
+        10
+      );
+      if (Number.isNaN(receiverId)) {
+        throw new Error('Invalid receiver ID');
       }
-      
-      const payload = {
+
+      const response = await api.post('/api/chat/send', {
         receiver_id: receiverId,
         message: msgContent,
-        message_type: 'text'
-      };
-      
-      console.log('📨 Request payload:', payload);
-      console.log('📨 Sending to API:', JSON.stringify(payload));
-      
-      const response = await api.post('/api/chat/send', payload);
+        message_type: 'text',
+      });
 
-      console.log(`✅ Message sent successfully (ID: ${response.data?.id})`, response.data);
-
-      // Update with server response - ensure all fields are present
-      setMessages(prev => 
-        prev.map(m => m.id === tempMsgId ? {
-          ...response.data,
-          sender_id: parseInt(response.data.sender_id)
-        } : m)
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === tempMsgId
+            ? {
+                ...response.data,
+                sender_id: parseInt(response.data.sender_id, 10),
+              }
+            : message
+        )
       );
-      
-      // Refresh conversations list (background refresh)
-      try {
-        await loadData(false);
-      } catch (err) {
-        console.warn('Warning: Failed to refresh conversations list:', err);
-      }
+
+      await loadData(false);
     } catch (err) {
-      console.error('❌ Error sending message:', err);
-      console.error('Full error response:', err.response?.data);
-      
-      // Extract error message safely - handle Pydantic validation errors (arrays of error objects)
+      console.error('Error sending message:', err);
+
       let errorMsg = 'Unknown error';
-      
       if (Array.isArray(err.response?.data)) {
-        // Pydantic validation error - array of error objects
-        const errors = err.response.data
-          .map(e => `${e.loc?.[1] || 'field'}: ${e.msg}` || e.msg)
-          .join('; ');
-        errorMsg = errors || 'Validation error';
+        errorMsg =
+          err.response.data
+            .map((item) => `${item.loc?.[1] || 'field'}: ${item.msg}`)
+            .join('; ') || 'Validation error';
       } else if (err.response?.data?.detail) {
-        errorMsg = typeof err.response.data.detail === 'string' 
-          ? err.response.data.detail 
-          : JSON.stringify(err.response.data.detail);
-      } else if (err.message && typeof err.message === 'string' && err.message !== '[object Object]') {
-        errorMsg = err.message;
+        errorMsg =
+          typeof err.response.data.detail === 'string'
+            ? err.response.data.detail
+            : JSON.stringify(err.response.data.detail);
       } else if (err.response?.data?.message) {
         errorMsg = err.response.data.message;
+      } else if (err.message) {
+        errorMsg = err.message;
       }
-      
+
       setError(`Failed to send message: ${errorMsg}`);
-      // Remove the failed temp message
       if (tempMsgId) {
-        setMessages(prev => prev.filter(m => m.id !== tempMsgId));
+        setMessages((prev) => prev.filter((message) => message.id !== tempMsgId));
       }
     } finally {
       setSending(false);
     }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
+  const handleKeyPress = (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
       handleSendMessage();
     }
   };
 
-  const formatTime = (timestamp) => {
-    return new Date(timestamp).toLocaleTimeString('en-US', {
+  const formatTime = (timestamp) =>
+    new Date(timestamp).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true
+      hour12: true,
     });
-  };
 
-  const getInitials = (name) => {
-    return name
+  const getInitials = (name) =>
+    name
       ?.split(' ')
-      .map(n => n[0])
+      .map((part) => part[0])
       .join('')
       .toUpperCase() || 'C';
-  };
-
-  // Call handlers
-  const handleCallClick = (event) => {
-    setMenuAnchor(event.currentTarget);
-  };
 
   const handleCloseMenu = () => {
     setMenuAnchor(null);
@@ -300,21 +255,18 @@ const ChatSupport = () => {
     alert(`Initiating voice call with ${counselorInfo?.full_name}...`);
     console.log('Voice call initiated to:', counselorInfo?.id);
     handleCloseMenu();
-    // TODO: Integrate Twilio or WebRTC for voice calling
   };
 
   const handleVideoCall = () => {
     alert(`Initiating video call with ${counselorInfo?.full_name}...`);
     console.log('Video call initiated to:', counselorInfo?.id);
     handleCloseMenu();
-    // TODO: Integrate Twilio or WebRTC for video calling
   };
 
-  // Voice message handlers
   const handleStartVoiceMessage = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream; // Save stream for later use
+      streamRef.current = stream;
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -328,98 +280,83 @@ const ChatSupport = () => {
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
         const audioUrl = URL.createObjectURL(audioBlob);
-        
-        console.log('🎤 Voice message recorded:', audioBlob.size, 'bytes');
-        
-        // Send voice message
+
         try {
           if (!selectedConversation) {
             setError('No conversation selected');
             return;
           }
-          
+
           const receiverId = selectedConversation.user_id || selectedConversation.id;
           if (!receiverId) {
             setError('Invalid receiver ID');
             return;
           }
-          
+
           const formData = new FormData();
           formData.append('audio', audioBlob, 'voice_message.wav');
           formData.append('receiver_id', receiverId.toString());
 
-          console.log('📤 Voice message details:');
-          console.log('  Receiver ID:', receiverId);
-          console.log('  Audio size:', audioBlob.size, 'bytes');
-          console.log('  Content-Type:', audioBlob.type);
-
-          // Add temporary voice message to UI
           const tempMsgId = Date.now();
           const tempMsg = {
             id: tempMsgId,
             sender_id: user?.id,
-            message: '🎙️ Voice message',
+            message: 'Voice message',
             created_at: new Date().toISOString(),
             message_type: 'voice',
-            audio_url: audioUrl
+            audio_url: audioUrl,
           };
-          setMessages([...messages, tempMsg]);
+
+          setMessages((prev) => [...prev, tempMsg]);
           setSending(true);
 
-          // Upload to server - use axios with proper headers
           const response = await api.post('/api/chat/send-voice', formData);
-          
-          console.log('✅ Voice message sent successfully:', response.data);
-          
-          // Update with server response
-          setMessages(prev => 
-            prev.map(m => m.id === tempMsgId ? {
-              ...response.data,
-              audio_url: audioUrl,
-              sender_id: parseInt(response.data.sender_id)
-            } : m)
+
+          setMessages((prev) =>
+            prev.map((message) =>
+              message.id === tempMsgId
+                ? {
+                    ...response.data,
+                    audio_url: audioUrl,
+                    sender_id: parseInt(response.data.sender_id, 10),
+                  }
+                : message
+            )
           );
-          setSending(false);
         } catch (err) {
-          console.error('❌ Error sending voice message:', err);
-          console.error('Response data:', err.response?.data);
-          console.error('Status:', err.response?.status);
-          console.error('Message:', err.message);
-          
+          console.error('Error sending voice message:', err);
+
           let errorMsg = 'Failed to send voice message';
           if (err.response?.data?.detail) {
-            if (Array.isArray(err.response.data.detail)) {
-              errorMsg = err.response.data.detail
-                .map(e => `${e.loc?.[1]}: ${e.msg}`)
-                .join('; ');
-            } else {
-              errorMsg = err.response.data.detail;
-            }
+            errorMsg = Array.isArray(err.response.data.detail)
+              ? err.response.data.detail
+                  .map((item) => `${item.loc?.[1]}: ${item.msg}`)
+                  .join('; ')
+              : err.response.data.detail;
           } else if (err.message) {
             errorMsg = err.message;
           }
-          
+
           setError(errorMsg);
+          setMessages((prev) =>
+            prev.filter((message) => message.message !== 'Voice message')
+          );
+        } finally {
           setSending(false);
-          // Remove the failed temp message
-          setMessages(prev => prev.filter(m => m.message !== '🎙️ Voice message'));
-        }
-        
-        // Stop all tracks
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach(track => track.stop());
-          streamRef.current = null;
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach((track) => track.stop());
+            streamRef.current = null;
+          }
         }
       };
 
       mediaRecorder.start();
       setIsRecording(true);
-      console.log('🎤 Recording started...');
     } catch (err) {
       console.error('Error accessing microphone:', err);
-      setError('Unable to access microphone: ' + err.message);
+      setError(`Unable to access microphone: ${err.message}`);
     }
-  };;
+  };
 
   const handleStopVoiceMessage = () => {
     if (mediaRecorderRef.current) {
@@ -428,42 +365,37 @@ const ChatSupport = () => {
     }
   };
 
-  // File/Document upload handlers
   const handleFileSelect = async (event) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !selectedConversation) return;
 
     try {
       setSending(true);
-      
-      // Create temporary file message
+
       const tempMsg = {
         id: Date.now(),
         sender_id: user?.id,
-        message: `📄 ${file.name}`,
+        message: file.name,
         created_at: new Date().toISOString(),
         message_type: 'file',
         file_name: file.name,
-        file_size: (file.size / 1024).toFixed(2) + ' KB'
+        file_size: `${(file.size / 1024).toFixed(2)} KB`,
       };
-      
-      setMessages([...messages, tempMsg]);
 
-      // Send file to server (multipart form data)
+      setMessages((prev) => [...prev, tempMsg]);
+
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('receiver_id', selectedConversation.user_id || selectedConversation.id);
+      formData.append(
+        'receiver_id',
+        selectedConversation.user_id || selectedConversation.id
+      );
 
-      console.log('File ready to send:', file.name);
-      
-      // In a real app, upload to server
-      // await api.post('/api/chat/send-file', formData);
-      
-      loadData(false);
+      console.log('File ready to send:', file.name, formData);
+      await loadData(false);
     } catch (err) {
       console.error('Error sending file:', err);
       setError('Failed to send file');
-      setMessages(prev => prev.filter(m => m.id !== (Date.now())));
     } finally {
       setSending(false);
       if (fileInputRef.current) {
@@ -476,711 +408,419 @@ const ChatSupport = () => {
     fileInputRef.current?.click();
   };
 
+  const selectConversation = (conversation) => {
+    setSelectedConversation(conversation);
+    setMobileOpen(false);
+  };
+
+  const renderStudentShell = (content) => (
+    <div className="student-shell">
+      <Sidebar />
+      <main className="student-main">
+        <div className="student-page student-chat-page">
+          {content}
+          <EmergencySOS />
+        </div>
+      </main>
+    </div>
+  );
+
+  const renderConversationList = () => (
+    <aside className={`student-chat-sidebar ${mobileOpen ? 'student-chat-sidebar-open' : ''}`}>
+      <div className="student-chat-sidebar-head">
+        <div>
+          <Typography className="student-chat-sidebar-title">Counselors</Typography>
+          <Typography className="student-chat-sidebar-subtitle">
+            {conversations.length} active, {allCounselors.length} available
+          </Typography>
+        </div>
+        <IconButton
+          className="student-chat-close-list"
+          onClick={() => setMobileOpen(false)}
+          aria-label="Close counselor list"
+        >
+          <CloseIcon />
+        </IconButton>
+      </div>
+
+      <List className="student-chat-list">
+        {conversations.length > 0 && (
+          <>
+            <ListItem className="student-chat-list-label">
+              <Typography>Active Conversations</Typography>
+            </ListItem>
+            {conversations.map((conversation) => (
+              <ListItemButton
+                key={`conversation-${conversation.id}`}
+                selected={selectedConversation?.id === conversation.id}
+                onClick={() => selectConversation(conversation)}
+                className="student-chat-list-item"
+              >
+                <Avatar className="student-chat-avatar">
+                  {getInitials(conversation.full_name)}
+                </Avatar>
+                <ListItemText
+                  primary={conversation.full_name}
+                  secondary={conversation.last_message || 'No messages yet'}
+                  primaryTypographyProps={{ className: 'student-chat-list-name' }}
+                  secondaryTypographyProps={{ className: 'student-chat-list-preview' }}
+                />
+                {conversation.unread_count > 0 && (
+                  <Chip label={conversation.unread_count} size="small" color="error" />
+                )}
+              </ListItemButton>
+            ))}
+            <Divider />
+          </>
+        )}
+
+        {allCounselors.length > 0 && (
+          <>
+            <ListItem className="student-chat-list-label">
+              <Typography>Available Counselors</Typography>
+            </ListItem>
+            {allCounselors.map((counselor) => {
+              const isInConversations = conversations.some(
+                (conversation) => conversation.id === counselor.id
+              );
+
+              return (
+                <ListItemButton
+                  key={`counselor-${counselor.id}`}
+                  selected={selectedConversation?.id === counselor.id}
+                  onClick={() => selectConversation(counselor)}
+                  className="student-chat-list-item"
+                  sx={{ opacity: isInConversations ? 0.72 : 1 }}
+                >
+                  <Badge
+                    overlap="circular"
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                    variant="dot"
+                    className="student-chat-online-badge"
+                  >
+                    <Avatar className="student-chat-avatar student-chat-avatar-online">
+                      {getInitials(counselor.full_name)}
+                    </Avatar>
+                  </Badge>
+                  <ListItemText
+                    primary={counselor.full_name}
+                    secondary={`Online - ${counselor.role || 'Counselor'}`}
+                    primaryTypographyProps={{ className: 'student-chat-list-name' }}
+                    secondaryTypographyProps={{ className: 'student-chat-list-preview' }}
+                  />
+                </ListItemButton>
+              );
+            })}
+          </>
+        )}
+
+        {conversations.length === 0 && allCounselors.length === 0 && (
+          <ListItem>
+            <ListItemText
+              primary="No counselors available"
+              secondary="Please check back later."
+            />
+          </ListItem>
+        )}
+      </List>
+    </aside>
+  );
+
+  const renderMessages = () => {
+    if (!selectedConversation || !counselorInfo) {
+      return (
+        <div className="student-chat-empty">
+          <div className="student-chat-empty-icon">C</div>
+          <Typography className="student-chat-empty-title">Select a counselor</Typography>
+          <Typography className="student-chat-empty-text">
+            Choose someone from the list to begin or continue a private support chat.
+          </Typography>
+        </div>
+      );
+    }
+
+    if (messages.length === 0) {
+      return (
+        <div className="student-chat-empty">
+          <div className="student-chat-empty-icon">{getInitials(counselorInfo.full_name)}</div>
+          <Typography className="student-chat-empty-title">Start the conversation</Typography>
+          <Typography className="student-chat-empty-text">
+            Send your first message to {counselorInfo.full_name}.
+          </Typography>
+        </div>
+      );
+    }
+
+    return messages.map((message) => {
+      const currentUserId = user?.id ? parseInt(user.id, 10) : null;
+      const msgSenderId = message.sender_id ? parseInt(message.sender_id, 10) : null;
+      const isUserMessage = currentUserId && msgSenderId === currentUserId;
+      const bubbleClass = isUserMessage
+        ? 'student-chat-message student-chat-message-user'
+        : 'student-chat-message student-chat-message-counselor';
+
+      return (
+        <div key={message.id} className={bubbleClass}>
+          <Avatar className="student-chat-message-avatar">
+            {isUserMessage ? 'You' : getInitials(counselorInfo.full_name)}
+          </Avatar>
+          <div className="student-chat-bubble">
+            {message.message_type === 'voice' ? (
+              <div className="student-chat-audio">
+                <audio controls controlsList="nodownload">
+                  <source
+                    src={`http://localhost:8000/api/chat/audio/${
+                      (message.message || '').includes('/')
+                        ? message.message.split('/').pop()
+                        : (message.message || '').split('\\').pop()
+                    }`}
+                    type="audio/wav"
+                  />
+                  Your browser does not support audio.
+                </audio>
+              </div>
+            ) : (
+              formatMessageText(message.message).map((paragraph, idx) => (
+                <Typography key={idx} className="student-chat-message-text">
+                  {paragraph}
+                </Typography>
+              ))
+            )}
+            <Typography className="student-chat-message-time">
+              {formatTime(message.created_at)}
+            </Typography>
+          </div>
+        </div>
+      );
+    });
+  };
+
   if (loading) {
-    return (
-      <VideoBackground overlay={true}>
-        <Box sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '80vh'
-        }}>
-          <Box sx={{ textAlign: 'center', color: 'white' }}>
-            <CircularProgress sx={{ mb: 2, color: 'white' }} />
-            <Typography>Loading chat...</Typography>
-          </Box>
-        </Box>
-      </VideoBackground>
+    return renderStudentShell(
+      <div className="student-chat-loading">
+        <CircularProgress />
+        <Typography>Loading counselor chat...</Typography>
+      </div>
     );
   }
 
-  return (
-    <VideoBackground overlay={true}>
-      <Box sx={{
-        display: 'flex',
-        height: '100vh',
-        flexDirection: 'column'
-      }}>
-        {/* Header */}
-        <Box sx={{
-          p: 2,
-          bgcolor: 'rgba(0,0,0,0.3)',
-          color: 'white',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          zIndex: 10
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconButton 
-              color="inherit" 
-              onClick={() => navigate('/chat')}
-              size="small"
-            >
-              <ArrowBackIcon />
-            </IconButton>
-            <Typography variant="h6" sx={{ fontWeight: 'bold', textTransform: 'none' }}>
-              💬 Counselor Chat Support
-            </Typography>
-          </Box>
-          <Tooltip title="Refresh">
-            <IconButton 
-              color="inherit"
-              onClick={() => loadData(false)}
-              size="small"
-            >
-              <RefreshIcon />
-            </IconButton>
-          </Tooltip>
-        </Box>
+  return renderStudentShell(
+    <>
+      <div className="student-chat-topbar">
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate('/dashboard')}
+          className="student-chat-back"
+        >
+          Back to Dashboard
+        </Button>
+        <Button
+          startIcon={<RefreshIcon />}
+          onClick={() => loadData(false)}
+          className="student-chat-secondary-action"
+          variant="outlined"
+        >
+          Refresh
+        </Button>
+      </div>
 
-        {error && (
-          <Alert severity="error" onClose={() => setError('')} sx={{ m: 1 }}>
-            {error}
-          </Alert>
-        )}
+      <section className="student-chat-hero">
+        <div>
+          <p className="student-chat-eyebrow">Private Support</p>
+          <h1>Counselor Chat</h1>
+          <p>
+            Message a counselor securely, continue recent conversations, or start
+            with an available professional.
+          </p>
+        </div>
+        <div className="student-chat-hero-stats">
+          <span>{conversations.length}</span>
+          <p>Active chats</p>
+        </div>
+      </section>
 
-        {/* Main Chat Area */}
-        <Box sx={{
-          display: 'flex',
-          flex: 1,
-          gap: 0,
-          overflow: 'hidden'
-        }}>
-          {/* Conversations List - Sidebar */}
-          <Box sx={{
-            width: { xs: mobileOpen ? '100%' : 0, sm: '100%', md: '28%' },
-            bgcolor: 'rgba(255,255,255,0.95)',
-            borderRight: { md: '1px solid #e0e0e0' },
-            display: 'flex',
-            flexDirection: 'column',
-            transition: 'width 0.3s',
-            overflow: 'hidden',
-            zIndex: 20
-          }}>
-        {/* Conversations Header */}
-            <Box sx={{
-              p: 2,
-              bgcolor: '#667eea',
-              color: 'white'
-            }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                👨‍⚕️ Counselor Support
-              </Typography>
-              <Typography variant="caption">
-                {conversations.length} active, {allCounselors.length} available
-              </Typography>
-            </Box>
+      {error && (
+        <Alert severity="error" onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
 
-            {/* Conversations List */}
-            <List sx={{
-              flex: 1,
-              overflowY: 'auto',
-              overflowX: 'hidden',
-              '&::-webkit-scrollbar': { width: '6px' },
-              '&::-webkit-scrollbar-track': { bgcolor: '#f1f1f1' },
-              '&::-webkit-scrollbar-thumb': { bgcolor: '#667eea', borderRadius: '3px' }
-            }}>
-              {/* Active Conversations Section */}
-              {conversations.length > 0 && (
-                <>
-                  <ListItem sx={{ p: 1, bgcolor: '#f5f5f5', borderBottom: '1px solid #e0e0e0' }}>
-                    <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#666' }}>
-                      💬 ACTIVE CONVERSATIONS
-                    </Typography>
-                  </ListItem>
-                  {conversations.map((conv) => (
-                    <ListItemButton
-                      key={`conv-${conv.id}`}
-                      selected={selectedConversation?.id === conv.id}
-                      onClick={() => {
-                        setSelectedConversation(conv);
-                        setMobileOpen(false);
-                      }}
-                      sx={{
-                        borderLeft: selectedConversation?.id === conv.id ? '4px solid #667eea' : 'none',
-                        '&.Mui-selected': {
-                          bgcolor: '#f0f0f0',
-                          '&:hover': { bgcolor: '#e8e8e8' }
-                        }
-                      }}
-                    >
-                      <Avatar 
-                        sx={{
-                          bgcolor: '#667eea',
-                          mr: 2,
-                          fontSize: '0.9rem',
-                          fontWeight: 'bold'
-                        }}
-                      >
-                        {getInitials(conv.full_name)}
-                      </Avatar>
-                      <ListItemText
-                        primary={<Typography variant="subtitle2" sx={{ fontWeight: 500 }}>{conv.full_name}</Typography>}
-                        secondary={
-                          <Typography variant="caption" sx={{ 
-                            color: '#666',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            display: 'block'
-                          }}>
-                            {conv.last_message || 'No messages yet'}
-                          </Typography>
-                        }
-                      />
-                      {conv.unread_count > 0 && (
-                        <Chip
-                          label={conv.unread_count}
-                          size="small"
-                          color="error"
-                          sx={{ ml: 1 }}
-                        />
-                      )}
-                    </ListItemButton>
-                  ))}
-                  <Divider sx={{ my: 1 }} />
-                </>
-              )}
+      <div className="student-chat-shell">
+        <button
+          type="button"
+          className="student-chat-mobile-list-btn"
+          onClick={() => setMobileOpen(true)}
+        >
+          <MenuIcon fontSize="small" />
+          Counselors
+        </button>
 
-              {/* Available Counselors Section */}
-              {allCounselors.length > 0 && (
-                <>
-                  <ListItem sx={{ p: 1, bgcolor: '#f5f5f5', borderBottom: '1px solid #e0e0e0' }}>
-                    <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#666' }}>
-                      ✅ AVAILABLE COUNSELORS
-                    </Typography>
-                  </ListItem>
-                  {allCounselors.map((counselor) => {
-                    // Check if already in conversations
-                    const isInConversations = conversations.some(c => c.id === counselor.id);
-                    return (
-                      <ListItemButton
-                        key={`counselor-${counselor.id}`}
-                        selected={selectedConversation?.id === counselor.id}
-                        onClick={() => {
-                          setSelectedConversation(counselor);
-                          setMobileOpen(false);
-                        }}
-                        sx={{
-                          borderLeft: selectedConversation?.id === counselor.id ? '4px solid #667eea' : 'none',
-                          opacity: isInConversations ? 0.7 : 1,
-                          '&.Mui-selected': {
-                            bgcolor: '#f0f0f0',
-                            '&:hover': { bgcolor: '#e8e8e8' }
-                          }
-                        }}
-                      >
-                        <Badge
-                          overlap="circular"
-                          anchorOrigin={{
-                            vertical: 'bottom',
-                            horizontal: 'right',
-                          }}
-                          variant="dot"
-                          sx={{
-                            '& .MuiBadge-badge': {
-                              bgcolor: '#86efac',
-                              boxShadow: '0 0 0 2px white'
-                            }
-                          }}
-                        >
-                          <Avatar 
-                            sx={{
-                              bgcolor: '#86efac',
-                              mr: 2,
-                              fontSize: '0.9rem',
-                              fontWeight: 'bold',
-                              color: '#333'
-                            }}
-                          >
-                            {getInitials(counselor.full_name)}
-                          </Avatar>
-                        </Badge>
-                        <ListItemText
-                          primary={
-                            <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>
-                              {counselor.full_name}
-                            </Typography>
-                          }
-                          secondary={
-                            <Typography variant="caption" sx={{ color: '#86efac', fontWeight: '600' }}>
-                              🟢 Online • {counselor.role}
-                            </Typography>
-                          }
-                        />
-                      </ListItemButton>
-                    );
-                  })}
-                </>
-              )}
+        {renderConversationList()}
 
-              {conversations.length === 0 && allCounselors.length === 0 && (
-                <ListItem>
-                  <ListItemText 
-                    primary="No counselors available"
-                    secondary="Please check back later"
-                    primaryTypographyProps={{ variant: 'body2' }}
-                  />
-                </ListItem>
-              )}
-            </List>
-          </Box>
-
-          {/* Chat Window */}
-          <Box sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            bgcolor: 'rgba(255,255,255,0.98)',
-            overflow: 'hidden'
-          }}>
-            {selectedConversation && counselorInfo ? (
-              <>
-                {/* Chat Header */}
-                <Box sx={{
-                  p: 2,
-                  bgcolor: '#2d3748',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.25)'
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Avatar 
-                      sx={{
-                        bgcolor: '#667eea',
-                        fontSize: '1.1rem',
-                        fontWeight: 'bold',
-                        color: '#fff'
-                      }}
-                    >
-                      {getInitials(counselorInfo.full_name)}
-                    </Avatar>
-                    <Box>
-                      <Typography 
-                        variant="subtitle1" 
-                        sx={{ 
-                          fontWeight: 'bold', 
-                          color: '#ffffff',
-                          fontSize: '1.1rem',
-                          letterSpacing: '0.5px'
-                        }}
-                      >
-                        {counselorInfo.full_name}
-                      </Typography>
-                      <Typography 
-                        variant="caption" 
-                        sx={{ 
-                          color: '#cbd5e0',
-                          fontSize: '0.85rem',
-                          fontWeight: '500'
-                        }}
-                      >
-                        💬 Counselor Support
-                      </Typography>
-                    </Box>
-                  </Box>
-                  
-                  {/* Call and Action Buttons */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Tooltip title="Voice Call">
-                      <IconButton 
-                        size="small"
-                        onClick={() => handleVoiceCall()}
-                        sx={{ color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}
-                      >
-                        <CallIcon sx={{ fontSize: '1.3rem' }} />
-                      </IconButton>
-                    </Tooltip>
-                    
-                    <Tooltip title="Video Call">
-                      <IconButton 
-                        size="small"
-                        onClick={() => handleVideoCall()}
-                        sx={{ color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}
-                      >
-                        <VideoCallIcon sx={{ fontSize: '1.3rem' }} />
-                      </IconButton>
-                    </Tooltip>
-                    
-                    <Tooltip title="More Options">
-                      <IconButton 
-                        size="small"
-                        onClick={(e) => setMenuAnchor(e.currentTarget)}
-                        sx={{ color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}
-                      >
-                        <MoreVertIcon sx={{ fontSize: '1.3rem' }} />
-                      </IconButton>
-                    </Tooltip>
-                    
-                    {mobileOpen && (
-                      <IconButton 
-                        color="inherit" 
-                        onClick={() => setMobileOpen(false)}
-                        sx={{ display: { md: 'none' }, color: '#fff' }}
-                      >
-                        <CloseIcon />
-                      </IconButton>
-                    )}
-                  </Box>
-                </Box>
-                
-                {/* Call Menu */}
-                <Menu
-                  anchorEl={menuAnchor}
-                  open={Boolean(menuAnchor)}
-                  onClose={() => setMenuAnchor(null)}
-                  transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-                  anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-                >
-                  <MenuItem onClick={() => { handleStartVoiceMessage(); setMenuAnchor(null); }}>
-                    <MicIcon sx={{ mr: 1 }} /> Send Voice Message
-                  </MenuItem>
-                  <MenuItem onClick={() => { handleAttachFile(); setMenuAnchor(null); }}>
-                    <AttachFileIcon sx={{ mr: 1 }} /> Share Document
-                  </MenuItem>
-                </Menu>
-
-                {/* Messages */}
-                <Box sx={{
-                  flex: 1,
-                  overflowY: 'auto',
-                  p: 2,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 1.5,
-                  bgcolor: 'rgba(245, 247, 250, 0.9)',
-                  '&::-webkit-scrollbar': { width: '6px' },
-                  '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
-                  '&::-webkit-scrollbar-thumb': { bgcolor: '#ccc', borderRadius: '3px' }
-                }}>
-                  {messages.length === 0 ? (
-                    <Box sx={{ 
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      height: '100%',
-                      textAlign: 'center'
-                    }}>
-                      <Box>
-                        <Typography variant="h6" sx={{ mb: 1 }}>
-                          👋 Start the conversation
-                        </Typography>
-                        <Typography color="text.secondary">
-                          Send your first message to begin chatting with {counselorInfo.full_name}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  ) : (
-                    messages.map((msg) => {
-                      // Ensure proper comparison - both should be numbers
-                      const currentUserId = user?.id ? parseInt(user.id) : null;
-                      const msgSenderId = msg.sender_id ? parseInt(msg.sender_id) : null;
-                      const isUserMessage = currentUserId && msgSenderId === currentUserId;
-                      
-                      return (
-                      <Box
-                        key={msg.id}
-                        sx={{
-                          display: 'flex',
-                          justifyContent: isUserMessage ? 'flex-end' : 'flex-start',
-                          mb: 0.5
-                        }}
-                      >
-                        <Box sx={{
-                          display: 'flex',
-                          flexDirection: isUserMessage ? 'row-reverse' : 'row',
-                          gap: 1,
-                          maxWidth: '85%',
-                          alignItems: 'flex-end'
-                        }}>
-                          <Avatar 
-                            sx={{
-                              width: 28,
-                              height: 28,
-                              bgcolor: isUserMessage ? '#667eea' : '#86efac',
-                              fontSize: '0.75rem',
-                              fontWeight: 'bold',
-                              color: isUserMessage ? 'white' : '#333'
-                            }}
-                          >
-                            {isUserMessage ? 'You' : '👨‍⚕️'}
-                          </Avatar>
-                          
-                          <Box sx={{
-                            bgcolor: isUserMessage ? '#667eea' : '#e3f2fd',
-                            color: isUserMessage ? 'white' : '#333',
-                            p: '10px 14px',
-                            borderRadius: '12px',
-                            wordBreak: 'break-word'
-                          }}>
-                            {msg.message_type === 'voice' ? (
-                              // Voice message - display audio player
-                              (() => {
-                                // Extract filename from path
-                                const fullPath = msg.message || '';
-                                const filename = fullPath.includes('/') ? fullPath.split('/').pop() : fullPath.split('\\').pop();
-                                const audioUrl = `http://localhost:8000/api/chat/audio/${filename}`;
-                                
-                                console.log('🎙️ Voice message details:', {
-                                  fullPath,
-                                  filename,
-                                  audioUrl,
-                                  msgId: msg.id,
-                                  timestamp: msg.created_at
-                                });
-                                
-                                return (
-                                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                    <Box sx={{ 
-                                      display: 'flex', 
-                                      alignItems: 'center', 
-                                      gap: 1,
-                                      width: '100%'
-                                    }}>
-                                      <audio 
-                                        controls
-                                        controlsList="nodownload"
-                                        onLoadedMetadata={(e) => {
-                                          console.log('✅ Audio loaded:', {
-                                            duration: e.target.duration,
-                                            src: e.target.src
-                                          });
-                                        }}
-                                        onError={(e) => {
-                                          console.error('❌ Audio error:', {
-                                            error: e,
-                                            src: e.target.src,
-                                            networkState: e.target.networkState,
-                                            readyState: e.target.readyState
-                                          });
-                                        }}
-                                        style={{ 
-                                          height: '36px', 
-                                          flex: 1,
-                                          minWidth: '180px',
-                                          maxWidth: '280px',
-                                          cursor: 'pointer'
-                                        }}
-                                      >
-                                        <source src={audioUrl} type="audio/wav" />
-                                        Your browser does not support audio.
-                                      </audio>
-                                    </Box>
-                                    <Typography 
-                                      variant="caption" 
-                                      sx={{
-                                        display: 'block',
-                                        opacity: 0.8,
-                                        fontSize: '0.7rem',
-                                        fontWeight: 500
-                                      }}
-                                    >
-                                      {formatTime(msg.created_at)}
-                                    </Typography>
-                                  </Box>
-                                );
-                              })()
-                            ) : (
-                              // Text message
-                              <>
-                                {formatMessageText(msg.message).map((paragraph, idx) => (
-                                  <Typography 
-                                    key={idx}
-                                    variant="body2" 
-                                    sx={{ 
-                                      mb: idx < formatMessageText(msg.message).length - 1 ? 1 : 0,
-                                      lineHeight: 1.5
-                                    }}
-                                  >
-                                    {paragraph}
-                                  </Typography>
-                                ))}
-                                <Typography 
-                                  variant="caption" 
-                                  sx={{
-                                    display: 'block',
-                                    mt: 0.5,
-                                    opacity: 0.7,
-                                    fontSize: '0.7rem'
-                                  }}
-                                >
-                                  {formatTime(msg.created_at)}
-                                </Typography>
-                              </>
-                            )}
-                          </Box>
-                        </Box>
-                      </Box>
-                    );
-                    })
-                  )}
-                  <div ref={messagesEndRef} />
-                </Box>
-
-                {/* Message Input */}
-                <Box sx={{
-                  p: 2,
-                  bgcolor: 'white',
-                  borderTop: '1px solid #e0e0e0'
-                }}>
-                  {/* Recording Indicator */}
-                  {isRecording && (
-                    <Box sx={{
-                      mb: 1,
-                      p: 1.5,
-                      bgcolor: '#fff3cd',
-                      borderRadius: '8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      border: '1px solid #ffc107'
-                    }}>
-                      <Box sx={{
-                        width: 12,
-                        height: 12,
-                        bgcolor: '#dc3545',
-                        borderRadius: '50%',
-                        animation: 'pulse 1.5s infinite'
-                      }} />
-                      <Typography sx={{ fontSize: '0.9rem', color: '#333' }}>
-                        🎙️ Recording voice message...
-                      </Typography>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={handleStopVoiceMessage}
-                        sx={{
-                          ml: 'auto',
-                          color: '#dc3545',
-                          borderColor: '#dc3545',
-                          fontSize: '0.8rem',
-                          py: 0.5
-                        }}
-                      >
-                        Stop & Send
-                      </Button>
-                    </Box>
-                  )}
-                  
-                  {/* Input Area */}
-                  <Box sx={{
-                    display: 'flex',
-                    gap: 1,
-                    alignItems: 'flex-end'
-                  }}>
-                    {/* Voice Message Button */}
-                    <Tooltip title={isRecording ? 'Stop Recording' : 'Record Voice Message'}>
-                      <IconButton
-                        size="small"
-                        onClick={isRecording ? handleStopVoiceMessage : handleStartVoiceMessage}
-                        sx={{
-                          color: isRecording ? '#dc3545' : '#999',
-                          bgcolor: isRecording ? '#fff5f5' : 'transparent',
-                          '&:hover': { 
-                            bgcolor: isRecording ? '#ffe0e0' : '#f5f5f5'
-                          }
-                        }}
-                      >
-                        <MicIcon />
-                      </IconButton>
-                    </Tooltip>
-                    
-                    {/* Message Input */}
-                    <TextField
-                      fullWidth
-                      multiline
-                      maxRows={3}
-                      placeholder="Type your message..."
-                      value={messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      disabled={sending || isRecording}
-                      size="small"
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: '10px',
-                          bgcolor: '#f5f5f5'
-                        }
-                      }}
-                    />
-                    
-                    {/* File Attachment Button */}
-                    <Tooltip title="Share Document">
-                      <IconButton
-                        size="small"
-                        onClick={handleAttachFile}
-                        disabled={sending || isRecording}
-                        sx={{
-                          color: '#999',
-                          '&:hover': { bgcolor: '#f5f5f5' }
-                        }}
-                      >
-                        <AttachFileIcon />
-                      </IconButton>
-                    </Tooltip>
-                    
-                    {/* Send Button */}
-                    <Button
-                      variant="contained"
-                      onClick={handleSendMessage}
-                      disabled={sending || !messageText.trim() || isRecording}
-                      sx={{
-                        bgcolor: '#667eea',
-                        minWidth: '80px',
-                        '&:hover': { bgcolor: '#5568d3' }
-                      }}
-                    >
-                      {sending ? (
-                        <CircularProgress size={20} sx={{ color: 'white' }} />
-                      ) : (
-                        <SendIcon />
-                      )}
-                    </Button>
-                  </Box>
-                </Box>
-                
-                {/* Hidden File Input */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  hidden
-                  onChange={handleFileSelect}
-                  accept="*/*"
-                />
-                
-                {/* CSS for pulse animation */}
-                <style>{`
-                  @keyframes pulse {
-                    0%, 100% { opacity: 1; }
-                    50% { opacity: 0.5; }
-                  }
-                `}</style>
-              </>
+        <section className="student-chat-window">
+          <header className="student-chat-window-head">
+            {counselorInfo ? (
+              <div className="student-chat-contact">
+                <Avatar className="student-chat-avatar student-chat-contact-avatar">
+                  {getInitials(counselorInfo.full_name)}
+                </Avatar>
+                <div>
+                  <Typography className="student-chat-contact-name">
+                    {counselorInfo.full_name}
+                  </Typography>
+                  <Typography className="student-chat-contact-status">
+                    Counselor Support
+                  </Typography>
+                </div>
+              </div>
             ) : (
-              <Box sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: '100%',
-                textAlign: 'center',
-                color: 'white'
-              }}>
-                <Box>
-                  <Typography variant="h5" sx={{ mb: 1 }}>
-                    📬 Select a Counselor
-                  </Typography>
-                  <Typography variant="body1" sx={{ opacity: 0.9 }}>
-                    Choose from your conversation list to start chatting
-                  </Typography>
-                </Box>
-              </Box>
+              <div>
+                <Typography className="student-chat-contact-name">
+                  No counselor selected
+                </Typography>
+                <Typography className="student-chat-contact-status">
+                  Choose a counselor to begin.
+                </Typography>
+              </div>
             )}
-          </Box>
-        </Box>
-      </Box>
-    </VideoBackground>
+
+            <div className="student-chat-tools">
+              <Tooltip title="Voice Call">
+                <span>
+                  <IconButton
+                    onClick={handleVoiceCall}
+                    disabled={!counselorInfo}
+                    className="student-chat-tool-btn"
+                  >
+                    <CallIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="Video Call">
+                <span>
+                  <IconButton
+                    onClick={handleVideoCall}
+                    disabled={!counselorInfo}
+                    className="student-chat-tool-btn"
+                  >
+                    <VideoCallIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="More Options">
+                <span>
+                  <IconButton
+                    onClick={(event) => setMenuAnchor(event.currentTarget)}
+                    disabled={!counselorInfo}
+                    className="student-chat-tool-btn"
+                  >
+                    <MoreVertIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </div>
+          </header>
+
+          <Menu
+            anchorEl={menuAnchor}
+            open={Boolean(menuAnchor)}
+            onClose={handleCloseMenu}
+            transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+            anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+          >
+            <MenuItem
+              onClick={() => {
+                handleStartVoiceMessage();
+                handleCloseMenu();
+              }}
+            >
+              <MicIcon sx={{ mr: 1 }} /> Send Voice Message
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                handleAttachFile();
+                handleCloseMenu();
+              }}
+            >
+              <AttachFileIcon sx={{ mr: 1 }} /> Share Document
+            </MenuItem>
+          </Menu>
+
+          <div className="student-chat-messages">
+            {renderMessages()}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <footer className="student-chat-composer">
+            {isRecording && (
+              <div className="student-chat-recording">
+                <span />
+                <Typography>Recording voice message...</Typography>
+                <Button size="small" variant="outlined" onClick={handleStopVoiceMessage}>
+                  Stop and Send
+                </Button>
+              </div>
+            )}
+
+            <div className="student-chat-input-row">
+              <Tooltip title={isRecording ? 'Stop Recording' : 'Record Voice Message'}>
+                <span>
+                  <IconButton
+                    onClick={isRecording ? handleStopVoiceMessage : handleStartVoiceMessage}
+                    disabled={!selectedConversation || sending}
+                    className="student-chat-tool-btn"
+                  >
+                    <MicIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <TextField
+                fullWidth
+                multiline
+                maxRows={3}
+                placeholder={
+                  selectedConversation
+                    ? 'Type your message...'
+                    : 'Select a counselor to start messaging'
+                }
+                value={messageText}
+                onChange={(event) => setMessageText(event.target.value)}
+                onKeyPress={handleKeyPress}
+                disabled={sending || isRecording || !selectedConversation}
+                className="student-chat-input"
+              />
+              <Tooltip title="Share Document">
+                <span>
+                  <IconButton
+                    onClick={handleAttachFile}
+                    disabled={sending || isRecording || !selectedConversation}
+                    className="student-chat-tool-btn"
+                  >
+                    <AttachFileIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Button
+                variant="contained"
+                onClick={handleSendMessage}
+                disabled={sending || !messageText.trim() || isRecording || !selectedConversation}
+                className="student-chat-send"
+              >
+                {sending ? <CircularProgress size={20} /> : <SendIcon />}
+              </Button>
+            </div>
+          </footer>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            hidden
+            onChange={handleFileSelect}
+            accept="*/*"
+          />
+        </section>
+      </div>
+    </>
   );
 };
 

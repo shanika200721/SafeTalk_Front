@@ -132,7 +132,7 @@ function AppRoutes() {
       <Route path="/checkin-history" element={<ProtectedRoute><CheckinRecords /></ProtectedRoute>} />
       <Route path="/checkin-records" element={<ProtectedRoute><CheckinRecords /></ProtectedRoute>} />
       <Route path="/chat" element={<ProtectedRoute><ChatSelector /></ProtectedRoute>} />
-      <Route path="/chat-support" element={<ProtectedRoute><ChatSupport /></ProtectedRoute>} />
+      <Route path="/chat-support" element={<ProtectedRoute><ChatSelector /></ProtectedRoute>} />
       <Route path="/chat-with-counselor" element={<ProtectedRoute><ChatSupport /></ProtectedRoute>} />
       <Route path="/safetalk-bot" element={<ProtectedRoute><SafeTalkBot /></ProtectedRoute>} />
       <Route path="/chat-interface" element={<ProtectedRoute><ChatInterface /></ProtectedRoute>} />
