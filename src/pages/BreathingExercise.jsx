@@ -1,226 +1,307 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeftIcon,
   PauseIcon,
   PlayIcon,
   RotateCcwIcon,
+  Volume2Icon,
+  VolumeXIcon,
   WindIcon,
 } from 'lucide-react';
-import { AnimatePresence, motion as Motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { Sidebar } from '../components/layout/Sidebar';
 import { EmergencySOS } from '../components/common/EmergencySOS';
 
-const phaseDurations = {
-  inhale: 4,
-  hold: 7,
-  exhale: 8,
-};
+const STAGE_DURATION_MS = 4000;
+const CYCLE_DURATION_MS = STAGE_DURATION_MS * 4;
+const BOX_START = 62;
+const BOX_END = 258;
 
-const phaseInstructions = {
-  inhale: 'Breathe In',
-  hold: 'Hold',
-  exhale: 'Breathe Out',
-  idle: 'Ready',
-};
-
-const phaseLabels = {
-  inhale: 'Inhale through your nose',
-  hold: 'Hold gently',
-  exhale: 'Exhale slowly',
-  idle: 'Start when you are ready',
-};
-
-const phaseClassMap = {
-  inhale: 'student-breathing-phase-inhale',
-  hold: 'student-breathing-phase-hold',
-  exhale: 'student-breathing-phase-exhale',
-  idle: 'student-breathing-phase-idle',
-};
+const stages = [
+  {
+    key: 'inhale',
+    title: 'Breathe in',
+    subtitle: 'Let the breath arrive gently.',
+    side: 'left side upward',
+  },
+  {
+    key: 'hold',
+    title: 'Hold gently',
+    subtitle: 'Keep your shoulders soft.',
+    side: 'top side across',
+  },
+  {
+    key: 'exhale',
+    title: 'Breathe out slowly',
+    subtitle: 'Release the breath without forcing.',
+    side: 'right side downward',
+  },
+  {
+    key: 'pause',
+    title: 'Pause',
+    subtitle: 'Rest for a moment before the next breath.',
+    side: 'bottom side returning',
+  },
+];
 
 const techniqueSteps = [
-  { label: 'Inhale', value: '4s', detail: 'Breathe in slowly through your nose.' },
-  { label: 'Hold', value: '7s', detail: 'Hold your breath gently without strain.' },
-  { label: 'Exhale', value: '8s', detail: 'Release the breath slowly through your mouth.' },
+  { label: 'Breathe in', value: '4s', detail: 'The light moves upward.' },
+  { label: 'Hold gently', value: '4s', detail: 'The light moves across the top.' },
+  { label: 'Breathe out slowly', value: '4s', detail: 'The light moves downward.' },
+  { label: 'Pause', value: '4s', detail: 'The light returns across the bottom.' },
 ];
+
+const pointForStage = (stageIndex, progress) => {
+  const span = BOX_END - BOX_START;
+
+  if (stageIndex === 0) {
+    return { x: BOX_START, y: BOX_END - span * progress };
+  }
+  if (stageIndex === 1) {
+    return { x: BOX_START + span * progress, y: BOX_START };
+  }
+  if (stageIndex === 2) {
+    return { x: BOX_END, y: BOX_START + span * progress };
+  }
+  return { x: BOX_END - span * progress, y: BOX_END };
+};
 
 const BreathingExercise = () => {
   const [isActive, setIsActive] = useState(false);
-  const [phase, setPhase] = useState('idle');
-  const [timer, setTimer] = useState(0);
-  const [sessionCount, setSessionCount] = useState(0);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [soundOn, setSoundOn] = useState(false);
+  const animationRef = useRef(null);
+  const startedAtRef = useRef(null);
+  const pausedElapsedRef = useRef(0);
+  const audioRef = useRef(null);
+
+  const stageIndex = Math.floor((elapsedMs % CYCLE_DURATION_MS) / STAGE_DURATION_MS);
+  const stageElapsed = elapsedMs % STAGE_DURATION_MS;
+  const stageProgress = Math.min(stageElapsed / STAGE_DURATION_MS, 1);
+  const activeStage = stages[stageIndex];
+  const countdown = Math.max(1, Math.ceil((STAGE_DURATION_MS - stageElapsed) / 1000));
+  const cycleCount = Math.floor(elapsedMs / CYCLE_DURATION_MS);
+  const lightPoint = useMemo(
+    () => pointForStage(stageIndex, stageProgress),
+    [stageIndex, stageProgress]
+  );
+
+  const stopAmbientSound = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    audio.gain.gain.cancelScheduledValues(audio.context.currentTime);
+    audio.gain.gain.linearRampToValueAtTime(0.0001, audio.context.currentTime + 0.25);
+    window.setTimeout(() => {
+      audio.oscillator.stop();
+      audio.context.close();
+    }, 300);
+    audioRef.current = null;
+  };
+
+  const startAmbientSound = () => {
+    if (audioRef.current) return;
+
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+
+    const context = new AudioContext();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+
+    oscillator.type = 'sine';
+    oscillator.frequency.value = 174;
+    gain.gain.value = 0.0001;
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    gain.gain.linearRampToValueAtTime(0.025, context.currentTime + 0.7);
+
+    audioRef.current = { context, oscillator, gain };
+  };
 
   useEffect(() => {
-    if (!isActive) return undefined;
+    if (!isActive) {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+      return undefined;
+    }
 
-    const interval = setInterval(() => {
-      setTimer((prev) => {
-        const newTimer = prev + 1;
-        if (phase === 'inhale' && newTimer >= phaseDurations.inhale) {
-          setPhase('hold');
-          return 0;
-        }
-        if (phase === 'hold' && newTimer >= phaseDurations.hold) {
-          setPhase('exhale');
-          return 0;
-        }
-        if (phase === 'exhale' && newTimer >= phaseDurations.exhale) {
-          setPhase('inhale');
-          setSessionCount((count) => count + 1);
-          return 0;
-        }
-        return newTimer;
-      });
-    }, 1000);
+    startedAtRef.current = performance.now() - pausedElapsedRef.current;
 
-    return () => clearInterval(interval);
-  }, [isActive, phase]);
+    const tick = (timestamp) => {
+      const nextElapsed = timestamp - startedAtRef.current;
+      pausedElapsedRef.current = nextElapsed;
+      setElapsedMs(nextElapsed);
+      animationRef.current = requestAnimationFrame(tick);
+    };
+
+    animationRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animationRef.current);
+  }, [isActive]);
+
+  useEffect(() => {
+    if (isActive && soundOn) {
+      startAmbientSound();
+    } else {
+      stopAmbientSound();
+    }
+
+    return () => stopAmbientSound();
+  }, [isActive, soundOn]);
 
   const handleStart = () => {
     setIsActive(true);
-    setPhase('inhale');
-    setTimer(0);
   };
 
   const handlePause = () => {
     setIsActive(false);
   };
 
-  const handleReset = () => {
+  const handleRestart = () => {
     setIsActive(false);
-    setPhase('idle');
-    setTimer(0);
-    setSessionCount(0);
+    setElapsedMs(0);
+    pausedElapsedRef.current = 0;
+    startedAtRef.current = null;
+    window.setTimeout(() => setIsActive(true), 0);
   };
 
-  const getCircleScale = () => {
-    if (phase === 'idle') return 1;
-    if (phase === 'inhale') return 1 + (timer / phaseDurations.inhale) * 0.5;
-    if (phase === 'hold') return 1.5;
-    if (phase === 'exhale') return 1.5 - (timer / phaseDurations.exhale) * 0.5;
-    return 1;
+  const toggleSound = () => {
+    setSoundOn((current) => !current);
   };
-
-  const phaseDuration = phaseDurations[phase] || 0;
-  const countdown =
-    phase === 'idle' ? null : Math.max(phaseDuration - timer, 0);
-  const phaseProgress =
-    phase === 'idle' ? 0 : Math.min((timer / phaseDuration) * 100, 100);
 
   return (
     <div className="student-shell">
       <Sidebar />
       <main className="student-main">
-        <div className="student-page student-breathing-page">
+        <div className="student-page student-breathing-page student-box-breathing-page">
           <Link to="/dashboard" className="student-top-link">
             <ArrowLeftIcon className="w-4 h-4" />
             <span>Back to Dashboard</span>
           </Link>
 
-          <section className="student-breathing-hero">
+          <section className="student-breathing-hero student-box-breathing-hero">
             <div>
               <p className="student-breathing-eyebrow">Guided Calm</p>
-              <h1>Breathing Exercise</h1>
+              <h1>Box Breathing</h1>
               <p>
-                Use the 4-7-8 technique to slow your body down and create a
-                calmer moment before continuing your day.
+                Follow the light around the square for a steady 4-second rhythm.
+                Keep each breath comfortable and gentle.
               </p>
             </div>
             <div className="student-breathing-hero-card">
               <WindIcon className="w-8 h-8" />
-              <span>4-7-8 rhythm</span>
+              <span>4-4-4-4 rhythm</span>
             </div>
           </section>
 
           <div className="student-breathing-layout">
-            <section className="student-breathing-panel student-breathing-practice-panel">
+            <section className="student-breathing-panel student-breathing-practice-panel student-box-breathing-practice">
               <div className="student-breathing-panel-head">
                 <div>
-                  <h2>Practice Session</h2>
-                  <p>{phaseLabels[phase]}</p>
+                  <h2>Guided Practice</h2>
+                  <p>{activeStage.subtitle}</p>
                 </div>
                 <div className="student-breathing-cycle-pill">
-                  {sessionCount} cycles
+                  {cycleCount} cycles
                 </div>
               </div>
 
-              <div className={`student-breathing-orb-wrap ${phaseClassMap[phase]}`}>
-                <div className="student-breathing-orb-stage">
-                  <Motion.div
-                    animate={{ scale: getCircleScale() }}
-                    transition={{
-                      duration:
-                        phase === 'inhale'
-                          ? phaseDurations.inhale
-                          : phase === 'exhale'
-                            ? phaseDurations.exhale
-                            : 0,
-                      ease: 'easeInOut',
-                    }}
-                    className="student-breathing-orb student-breathing-orb-outer"
+              <div className="student-box-stage" aria-live="polite">
+                <svg className="student-box-svg" viewBox="0 0 320 320" role="img" aria-label={`Box breathing stage: ${activeStage.title}`}>
+                  <defs>
+                    <filter id="boxBreathingGlow" x="-60%" y="-60%" width="220%" height="220%">
+                      <feGaussianBlur stdDeviation="6" result="blur" />
+                      <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                  </defs>
+                  <rect
+                    x={BOX_START}
+                    y={BOX_START}
+                    width={BOX_END - BOX_START}
+                    height={BOX_END - BOX_START}
+                    rx="18"
+                    className="student-box-track"
                   />
-                  <Motion.div
-                    animate={{ scale: getCircleScale() }}
-                    transition={{
-                      duration:
-                        phase === 'inhale'
-                          ? phaseDurations.inhale
-                          : phase === 'exhale'
-                            ? phaseDurations.exhale
-                            : 0,
-                      ease: 'easeInOut',
-                    }}
-                    className="student-breathing-orb student-breathing-orb-middle"
+                  <rect
+                    x={BOX_START}
+                    y={BOX_START}
+                    width={BOX_END - BOX_START}
+                    height={BOX_END - BOX_START}
+                    rx="18"
+                    className="student-box-glow"
                   />
-                  <Motion.div
-                    animate={{ scale: getCircleScale() }}
-                    transition={{
-                      duration:
-                        phase === 'inhale'
-                          ? phaseDurations.inhale
-                          : phase === 'exhale'
-                            ? phaseDurations.exhale
-                            : 0,
-                      ease: 'easeInOut',
-                    }}
-                    className="student-breathing-orb student-breathing-orb-core"
+                  <Motion.circle
+                    cx={lightPoint.x}
+                    cy={lightPoint.y}
+                    r="9"
+                    className="student-box-light"
+                    filter="url(#boxBreathingGlow)"
                   />
+                </svg>
 
-                  <div className="student-breathing-orb-content">
-                    <AnimatePresence mode="wait">
-                      <Motion.div
-                        key={phase}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                      >
-                        <p>{phaseInstructions[phase]}</p>
-                        {countdown !== null && <strong>{countdown}</strong>}
-                      </Motion.div>
-                    </AnimatePresence>
-                  </div>
+                <div className="student-box-copy">
+                  <Motion.div
+                    key={activeStage.key}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35 }}
+                  >
+                    <p className="student-box-stage-title">{activeStage.title}</p>
+                    <strong>{countdown}</strong>
+                    <p className="student-box-subtitle">{activeStage.side}</p>
+                  </Motion.div>
                 </div>
               </div>
 
-              <div className="student-breathing-progress">
-                <div style={{ width: `${phaseProgress}%` }} />
+              <div className="student-breathing-progress" aria-hidden="true">
+                <div style={{ width: `${stageProgress * 100}%` }} />
               </div>
 
               <div className="student-breathing-controls">
-                {!isActive ? (
-                  <button onClick={handleStart} className="student-btn student-btn-primary">
-                    <PlayIcon className="w-5 h-5" />
-                    Start
-                  </button>
-                ) : (
-                  <button onClick={handlePause} className="student-btn student-btn-warning">
-                    <PauseIcon className="w-5 h-5" />
-                    Pause
-                  </button>
-                )}
-                <button onClick={handleReset} className="student-btn student-btn-secondary">
+                <button
+                  type="button"
+                  onClick={handleStart}
+                  className="student-btn student-btn-primary"
+                  disabled={isActive}
+                >
+                  <PlayIcon className="w-5 h-5" />
+                  Start
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePause}
+                  className="student-btn student-btn-warning"
+                  disabled={!isActive}
+                >
+                  <PauseIcon className="w-5 h-5" />
+                  Pause
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRestart}
+                  className="student-btn student-btn-secondary"
+                >
                   <RotateCcwIcon className="w-5 h-5" />
-                  Reset
+                  Restart
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleSound}
+                  className="student-btn student-btn-secondary"
+                  aria-pressed={soundOn}
+                >
+                  {soundOn ? (
+                    <Volume2Icon className="w-5 h-5" />
+                  ) : (
+                    <VolumeXIcon className="w-5 h-5" />
+                  )}
+                  {soundOn ? 'Sound On' : 'Sound Off'}
                 </button>
               </div>
             </section>
@@ -229,8 +310,8 @@ const BreathingExercise = () => {
               <section className="student-breathing-panel">
                 <div className="student-breathing-panel-head">
                   <div>
-                    <h2>Technique</h2>
-                    <p>One complete cycle takes 19 seconds.</p>
+                    <h2>Box Breathing</h2>
+                    <p>One complete cycle takes 16 seconds.</p>
                   </div>
                 </div>
                 <div className="student-breathing-step-list">
@@ -247,10 +328,10 @@ const BreathingExercise = () => {
               </section>
 
               <section className="student-breathing-panel student-breathing-note">
-                <h2>Suggested Use</h2>
+                <h2>Gentle Reminder</h2>
                 <p>
-                  Repeat for 3-4 cycles, or pause sooner if you feel lightheaded.
-                  Keep the breath gentle and comfortable.
+                  This is a simple guided breathing practice for a quiet study
+                  break. Notice how you feel. Stop if you become uncomfortable.
                 </p>
               </section>
             </aside>

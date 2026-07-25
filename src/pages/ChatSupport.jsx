@@ -35,6 +35,7 @@ import { Sidebar } from '../components/layout/Sidebar';
 import { EmergencySOS } from '../components/common/EmergencySOS';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import AuthenticatedAudio from '../components/common/AuthenticatedAudio';
 
 const formatMessageText = (text) => {
   if (!text) return [];
@@ -567,17 +568,7 @@ const ChatSupport = () => {
           <div className="student-chat-bubble">
             {message.message_type === 'voice' ? (
               <div className="student-chat-audio">
-                <audio controls controlsList="nodownload">
-                  <source
-                    src={`http://localhost:8000/api/chat/audio/${
-                      (message.message || '').includes('/')
-                        ? message.message.split('/').pop()
-                        : (message.message || '').split('\\').pop()
-                    }`}
-                    type="audio/wav"
-                  />
-                  Your browser does not support audio.
-                </audio>
+                <AuthenticatedAudio message={message} />
               </div>
             ) : (
               formatMessageText(message.message).map((paragraph, idx) => (

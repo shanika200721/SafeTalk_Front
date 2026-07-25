@@ -18,7 +18,7 @@ const DebugAuth = () => {
     });
   }, [isAuthenticated, user, loading, hasAcceptedTerms]);
   
-  if (process.env.NODE_ENV !== 'development') return null;
+  if (import.meta.env.MODE !== 'development') return null;
   
   return (
     <Box sx={{ position: 'fixed', bottom: 10, right: 10, zIndex: 9999 }}>

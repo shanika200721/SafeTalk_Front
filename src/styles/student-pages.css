@@ -1123,6 +1123,112 @@
   border-color: #99f6e4;
 }
 
+.student-box-breathing-page {
+  --box-teal: #0f9f9a;
+  --box-blue: #2563eb;
+  --box-ink: #102033;
+  --box-soft: #e6fffb;
+}
+
+.student-box-breathing-hero {
+  background:
+    linear-gradient(135deg, rgba(15, 159, 154, 0.92), rgba(37, 99, 235, 0.9)),
+    linear-gradient(180deg, #f0fdfa 0%, #eff6ff 100%);
+}
+
+.student-box-breathing-practice {
+  background:
+    linear-gradient(180deg, rgba(240, 253, 250, 0.92) 0%, rgba(239, 246, 255, 0.95) 100%),
+    #ffffff;
+}
+
+.student-box-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 28rem;
+  margin: 0.35rem 0 1rem;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(255, 255, 255, 0.9) 0%, rgba(240, 253, 250, 0.7) 42%, rgba(219, 234, 254, 0.55) 100%);
+  border: 1px solid rgba(153, 246, 228, 0.78);
+}
+
+.student-box-svg {
+  width: min(28rem, 82vw);
+  max-width: 100%;
+  aspect-ratio: 1;
+}
+
+.student-box-track {
+  fill: rgba(255, 255, 255, 0.35);
+  stroke: rgba(15, 118, 110, 0.28);
+  stroke-width: 10;
+}
+
+.student-box-glow {
+  fill: none;
+  stroke: rgba(45, 212, 191, 0.55);
+  stroke-width: 5;
+  filter: drop-shadow(0 0 14px rgba(45, 212, 191, 0.45));
+}
+
+.student-box-light {
+  fill: #f8fafc;
+  stroke: #2dd4bf;
+  stroke-width: 4;
+  filter: drop-shadow(0 0 16px rgba(37, 99, 235, 0.45));
+}
+
+.student-box-copy {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  text-align: center;
+  color: var(--box-ink);
+}
+
+.student-box-stage-title {
+  margin: 0;
+  font-size: clamp(1.65rem, 4vw, 3rem);
+  line-height: 1.05;
+  font-weight: 900;
+}
+
+.student-box-copy strong {
+  display: block;
+  margin-top: 0.7rem;
+  font-size: clamp(3.2rem, 9vw, 6rem);
+  line-height: 0.95;
+  font-weight: 900;
+  color: var(--box-teal);
+}
+
+.student-box-subtitle {
+  margin: 0.75rem 0 0;
+  color: #475569;
+  font-size: clamp(0.95rem, 2vw, 1.1rem);
+  font-weight: 800;
+}
+
+.student-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .student-box-light,
+  .student-box-glow {
+    transition: none;
+    filter: none;
+  }
+}
+
 .student-tip-box {
   margin-top: 1.5rem;
   padding: 1.35rem 1.5rem;

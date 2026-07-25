@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   TextField,
@@ -41,6 +41,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import VideoBackground from '../components/common/VideoBackground';
+import AuthenticatedAudio from '../components/common/AuthenticatedAudio';
 
 const formatMessageText = (text) => {
   if (!text) return [];
@@ -219,7 +220,7 @@ const CounselorChat = () => {
       if (Array.isArray(err.response?.data)) {
         // Pydantic validation error - array of error objects
         const errors = err.response.data
-          .map(e => `${e.loc?.[1] || 'field'}: ${e.msg}` || e.msg)
+          .map(e => `${e.loc?.[1] || 'field'}: ${e.msg || 'validation error'}`)
           .join('; ');
         errorMsg = errors || 'Validation error';
       } else if (err.response?.data?.detail) {
@@ -313,10 +314,6 @@ const CounselorChat = () => {
           formData.append('audio', audioBlob, 'voice_message.wav');
           formData.append('receiver_id', receiverId.toString());
 
-          console.log('📤 Voice message details:');
-          console.log('  Receiver ID:', receiverId);
-          console.log('  Audio size:', audioBlob.size, 'bytes');
-          console.log('  Content-Type:', audioBlob.type);
 
           // Add temporary voice message to UI
           const tempMsgId = Date.now();
@@ -773,19 +770,6 @@ const CounselorChat = () => {
                             {msg.message_type === 'voice' ? (
                               // Voice message - display audio player
                               (() => {
-                                // Extract filename from path
-                                const fullPath = msg.message || '';
-                                const filename = fullPath.includes('/') ? fullPath.split('/').pop() : fullPath.split('\\').pop();
-                                const audioUrl = `http://localhost:8000/api/chat/audio/${filename}`;
-                                
-                                console.log('🎙️ Voice message details:', {
-                                  fullPath,
-                                  filename,
-                                  audioUrl,
-                                  msgId: msg.id,
-                                  timestamp: msg.created_at
-                                });
-                                
                                 return (
                                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                                     <Box sx={{ 
@@ -794,34 +778,16 @@ const CounselorChat = () => {
                                       gap: 1,
                                       width: '100%'
                                     }}>
-                                      <audio 
-                                        controls
-                                        controlsList="nodownload"
-                                        onLoadedMetadata={(e) => {
-                                          console.log('✅ Audio loaded:', {
-                                            duration: e.target.duration,
-                                            src: e.target.src
-                                          });
-                                        }}
-                                        onError={(e) => {
-                                          console.error('❌ Audio error:', {
-                                            error: e,
-                                            src: e.target.src,
-                                            networkState: e.target.networkState,
-                                            readyState: e.target.readyState
-                                          });
-                                        }}
-                                        style={{ 
-                                          height: '36px', 
+                                      <AuthenticatedAudio
+                                        message={msg}
+                                        style={{
+                                          height: '36px',
                                           flex: 1,
                                           minWidth: '180px',
                                           maxWidth: '280px',
-                                          cursor: 'pointer'
+                                          cursor: 'pointer',
                                         }}
-                                      >
-                                        <source src={audioUrl} type="audio/wav" />
-                                        Your browser does not support audio.
-                                      </audio>
+                                      />
                                     </Box>
                                     <Typography 
                                       variant="caption" 

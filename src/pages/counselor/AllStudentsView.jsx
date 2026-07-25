@@ -42,13 +42,10 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import counselorService from '../../services/counselorService';
 
 const AllStudentsView = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-
   // State management
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);

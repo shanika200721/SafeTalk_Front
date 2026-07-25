@@ -198,7 +198,7 @@ const Register = () => {
       } else {
         setError(result.error || 'Registration failed');
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred');
     } finally {
       setLoading(false);

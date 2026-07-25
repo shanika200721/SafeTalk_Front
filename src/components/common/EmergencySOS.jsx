@@ -1,13 +1,13 @@
 import React, { useState } from 'react'
 import { PhoneIcon, XIcon } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion as Motion, AnimatePresence } from 'framer-motion'
 
 export function EmergencySOS() {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   return (
     <>
-      <motion.button
+      <Motion.button
         onClick={() => setIsModalOpen(true)}
         className="fixed bottom-6 right-6 z-40 w-16 h-16 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-2xl flex items-center justify-center transition-all"
         whileHover={{
@@ -29,12 +29,12 @@ export function EmergencySOS() {
         }}
       >
         <PhoneIcon className="w-7 h-7" />
-      </motion.button>
+      </Motion.button>
 
       <AnimatePresence>
         {isModalOpen && (
           <>
-            <motion.div
+            <Motion.div
               initial={{
                 opacity: 0,
               }}
@@ -47,7 +47,7 @@ export function EmergencySOS() {
               onClick={() => setIsModalOpen(false)}
               className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
             >
-              <motion.div
+              <Motion.div
                 initial={{
                   scale: 0.9,
                   opacity: 0,
@@ -138,8 +138,8 @@ export function EmergencySOS() {
                   You are not alone. These services are free, confidential, and
                   available 24/7.
                 </p>
-              </motion.div>
-            </motion.div>
+              </Motion.div>
+            </Motion.div>
           </>
         )}
       </AnimatePresence>

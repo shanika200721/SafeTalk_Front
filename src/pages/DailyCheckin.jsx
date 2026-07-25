@@ -29,6 +29,7 @@ import Save from '@mui/icons-material/Save';
 import WarningAmber from '@mui/icons-material/WarningAmber';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { getLatestModalityPredictions } from '../services/modalityService';
 import { Sidebar } from '../components/layout/Sidebar';
 import { EmergencySOS } from '../components/common/EmergencySOS';
 
@@ -65,6 +66,7 @@ const DailyCheckin = () => {
   const [success, setSuccess] = useState('');
   const [todayCheckin, setTodayCheckin] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [moodPrediction, setMoodPrediction] = useState(null);
 
   useEffect(() => {
     const loadCheckinData = async () => {
@@ -77,6 +79,15 @@ const DailyCheckin = () => {
           setMode('view');
         } else {
           setMode('form');
+        }
+        try {
+          const predictionResponse = await getLatestModalityPredictions();
+          const latestMood = (predictionResponse.predictions || []).find(
+            (prediction) => prediction.modality === 'mood'
+          );
+          setMoodPrediction(latestMood || null);
+        } catch {
+          setMoodPrediction(null);
         }
       } catch {
         console.log('No check-in today yet or API error');
@@ -182,6 +193,15 @@ const DailyCheckin = () => {
         setTodayCheckin(checkin);
         setFormData(checkin);
         setMode('view');
+      }
+      try {
+        const predictionResponse = await getLatestModalityPredictions();
+        const latestMood = (predictionResponse.predictions || []).find(
+          (prediction) => prediction.modality === 'mood'
+        );
+        setMoodPrediction(latestMood || null);
+      } catch {
+        setMoodPrediction(null);
       }
     } catch (err) {
       const errorMsg =
@@ -346,6 +366,16 @@ const DailyCheckin = () => {
 
           <RiskSummary />
         </div>
+
+        {moodPrediction && (
+          <Alert severity="info">
+            <div className="student-checkin-chip-row">
+              <Chip label="Mood: heuristic" size="small" />
+              <Chip label={moodPrediction.status} size="small" />
+              <Chip label="Screening support only" size="small" />
+            </div>
+          </Alert>
+        )}
 
         <div className="student-checkin-grid student-checkin-grid-4">
           <MetricCard

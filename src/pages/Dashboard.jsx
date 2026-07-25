@@ -11,6 +11,8 @@ import {
   BookOpenIcon,
   HeartIcon,
   CalendarIcon,
+  ShieldCheckIcon,
+  WindIcon,
 } from 'lucide-react'
 import {
   LineChart,
@@ -21,9 +23,10 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import { motion } from 'framer-motion'
+import { motion as Motion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
 import studentService from '../services/studentService'
+import fusionService from '../services/fusionService'
 import { Sidebar } from '../components/layout/Sidebar'
 import { EmergencySOS } from '../components/common/EmergencySOS'
 
@@ -73,6 +76,9 @@ const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(fallbackDashboard)
   const [stats, setStats] = useState(fallbackStats)
   const [loading, setLoading] = useState(true)
+  const [fusionLatest, setFusionLatest] = useState(null)
+  const [fusionLoading, setFusionLoading] = useState(false)
+  const [fusionError, setFusionError] = useState('')
 
   useEffect(() => {
     const loadDashboard = async () => {
@@ -108,6 +114,38 @@ const Dashboard = () => {
 
     loadDashboard()
   }, [])
+
+  useEffect(() => {
+    const loadLatestFusion = async () => {
+      try {
+        const latest = await fusionService.getLatest()
+        setFusionLatest(latest)
+      } catch (error) {
+        if (error?.response?.status !== 404) {
+          console.error('Failed to load controlled fusion summary:', error)
+        }
+      }
+    }
+
+    loadLatestFusion()
+  }, [])
+
+  const generateScreeningSummary = async () => {
+    setFusionLoading(true)
+    setFusionError('')
+    try {
+      const result = await fusionService.assessSelf()
+      setFusionLatest(result)
+    } catch (error) {
+      setFusionError(
+        error?.response?.data?.error?.message ||
+          error?.response?.data?.detail ||
+          'Could not generate a screening summary right now.'
+      )
+    } finally {
+      setFusionLoading(false)
+    }
+  }
 
   const moodData = useMemo(() => {
     const recentCheckins = dashboardData?.recent_checkins || []
@@ -167,7 +205,7 @@ const Dashboard = () => {
     <div className="student-shell">
       <Sidebar />
       <main className="student-main">
-        <motion.div
+        <Motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="student-page"
@@ -353,6 +391,76 @@ const Dashboard = () => {
             </div>
           </div>
 
+          <div className="student-panel">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h3 className="student-panel-title">Screening Summary</h3>
+                <p className="student-panel-subtitle">
+                  Model-generated screening support based on current eligible modality predictions.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="student-btn student-btn-primary"
+                onClick={generateScreeningSummary}
+                disabled={fusionLoading}
+              >
+                <ShieldCheckIcon className="w-4 h-4" />
+                {fusionLoading ? 'Generating...' : 'Generate Summary'}
+              </button>
+            </div>
+
+            {fusionError && (
+              <p className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {fusionError}
+              </p>
+            )}
+
+            {fusionLatest ? (
+              <div className="mt-5 grid gap-4 md:grid-cols-3">
+                <div>
+                  <p className="student-stat-title">Status</p>
+                  <p className="student-stat-value text-slate-800">
+                    {fusionLatest.status === 'insufficient_evidence'
+                      ? 'Insufficient evidence'
+                      : fusionLatest.risk_level || 'Pending'}
+                  </p>
+                  <p className="student-stat-note">
+                    {fusionLatest.score == null
+                      ? 'No fused score was produced.'
+                      : `Model score: ${(fusionLatest.score * 100).toFixed(1)}%`}
+                  </p>
+                </div>
+                <div>
+                  <p className="student-stat-title">Evidence Coverage</p>
+                  <p className="student-stat-value text-slate-800">
+                    {Math.round((fusionLatest.evidence?.base_weight_coverage || 0) * 100)}%
+                  </p>
+                  <p className="student-stat-note">
+                    {fusionLatest.evidence?.coverage_category || 'insufficient'} coverage
+                  </p>
+                </div>
+                <div>
+                  <p className="student-stat-title">Modalities Used</p>
+                  <p className="student-stat-value text-slate-800">
+                    {fusionLatest.evidence?.used_modalities?.length || 0}
+                  </p>
+                  <p className="student-stat-note">
+                    Missing: {fusionLatest.evidence?.missing_modalities?.join(', ') || 'none'}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-slate-600">
+                No controlled screening summary has been generated yet.
+              </p>
+            )}
+
+            <p className="mt-4 text-sm text-slate-600">
+              This is a screening-support signal, not a clinical diagnosis. No counselor has been contacted from this result.
+            </p>
+          </div>
+
           <div className="student-recommendation">
             <div className="student-recommendation-icon">
               <HeartIcon className="w-5 h-5" />
@@ -385,6 +493,12 @@ const Dashboard = () => {
               <p className="student-cta-text">Talk to someone</p>
             </Link>
 
+            <Link to="/breathing-exercise" className="student-cta-card bg-teal-600">
+              <WindIcon className="w-8 h-8" />
+              <h4 className="student-cta-title">Box Breathing</h4>
+              <p className="student-cta-text">Follow a calm 4-4-4-4 guide</p>
+            </Link>
+
             <Link to="/resources" className="student-cta-card bg-pink-600">
               <BookOpenIcon className="w-8 h-8" />
               <h4 className="student-cta-title">Resources</h4>
@@ -393,7 +507,7 @@ const Dashboard = () => {
           </div>
 
           <EmergencySOS />
-        </motion.div>
+        </Motion.div>
       </main>
     </div>
   )

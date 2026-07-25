@@ -34,6 +34,8 @@ import TermsOfService from './pages/TermsOfService';
 import Resources from './pages/Resources';
 import Settings from './pages/Settings';
 
+const COUNSELOR_ROLES = new Set(['counselor', 'admin', 'psychiatrist']);
+
 // Error boundary
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -97,7 +99,7 @@ const CounselorRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
   
-  if (user?.role !== 'counselor') {
+  if (!COUNSELOR_ROLES.has(user?.role)) {
     return <Navigate to="/dashboard" replace />;
   }
   
