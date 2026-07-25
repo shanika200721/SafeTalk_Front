@@ -23,7 +23,17 @@ import api from '../services/api';
 const CONSENT_LABELS = {
   profile_processing: {
     label: 'Profile Processing',
-    description: 'Required before submitting profile assessment details.',
+    description: 'Legacy combined profile consent retained for existing records.',
+    optional: true,
+  },
+  profile_data_storage: {
+    label: 'Profile Data Storage',
+    description: 'Required before saving profile assessment drafts or submissions.',
+    optional: false,
+  },
+  profile_model_processing: {
+    label: 'Profile Model Processing',
+    description: 'Required before profile answers are processed by the verified profile model.',
     optional: false,
   },
   dass21_processing: {
@@ -48,7 +58,17 @@ const CONSENT_LABELS = {
   },
   face_processing: {
     label: 'Facial Data Processing',
-    description: 'Optional and not pre-granted for existing users.',
+    description: 'Legacy combined facial consent retained for existing records.',
+    optional: true,
+  },
+  facial_capture: {
+    label: 'Facial Capture',
+    description: 'Optional. Required before the camera can capture an image for facial check-in.',
+    optional: true,
+  },
+  facial_model_processing: {
+    label: 'Facial Model Processing',
+    description: 'Optional. Required before an explicitly captured facial image can be processed.',
     optional: true,
   },
   behavioral_processing: {

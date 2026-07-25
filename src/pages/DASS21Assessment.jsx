@@ -87,7 +87,6 @@ const DASS21Assessment = () => {
           setResponses(today.responses);
           setEditingId(today.id);
           setResult(today);
-          console.log("Loaded today's DASS21 assessment for editing");
         } catch (err) {
           if (err.response?.status !== 404) {
             console.error("Error loading today's assessment:", err);
@@ -99,7 +98,6 @@ const DASS21Assessment = () => {
             params: { limit: 50 },
           });
           setHistory(historyResponse.data.assessments || []);
-          console.log('Loaded DASS21 history');
         } catch (err) {
           console.error('Error loading history:', err);
         }

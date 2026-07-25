@@ -4,9 +4,11 @@ import {
   Avatar,
   Badge,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   Divider,
+  FormControlLabel,
   IconButton,
   List,
   ListItem,
@@ -59,6 +61,7 @@ const ChatSupport = () => {
   const [error, setError] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [analyzeVoiceTone, setAnalyzeVoiceTone] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState(null);
 
   const messagesEndRef = useRef(null);
@@ -129,7 +132,6 @@ const ChatSupport = () => {
 
     try {
       const receiverId = selectedConversation.user_id || selectedConversation.id;
-      console.log(`Loading messages from counselor ID: ${receiverId}`);
       const response = await api.get(`/api/chat/messages/${receiverId}`, {
         params: { limit: 100 },
       });
@@ -254,13 +256,11 @@ const ChatSupport = () => {
 
   const handleVoiceCall = () => {
     alert(`Initiating voice call with ${counselorInfo?.full_name}...`);
-    console.log('Voice call initiated to:', counselorInfo?.id);
     handleCloseMenu();
   };
 
   const handleVideoCall = () => {
     alert(`Initiating video call with ${counselorInfo?.full_name}...`);
-    console.log('Video call initiated to:', counselorInfo?.id);
     handleCloseMenu();
   };
 
@@ -297,6 +297,7 @@ const ChatSupport = () => {
           const formData = new FormData();
           formData.append('audio', audioBlob, 'voice_message.wav');
           formData.append('receiver_id', receiverId.toString());
+          formData.append('analyze_emotional_tone', analyzeVoiceTone ? 'true' : 'false');
 
           const tempMsgId = Date.now();
           const tempMsg = {
@@ -306,6 +307,8 @@ const ChatSupport = () => {
             created_at: new Date().toISOString(),
             message_type: 'voice',
             audio_url: audioUrl,
+            ai_analysis_requested: analyzeVoiceTone,
+            ai_analysis_status: analyzeVoiceTone ? 'pending' : 'not_requested',
           };
 
           setMessages((prev) => [...prev, tempMsg]);
@@ -392,7 +395,6 @@ const ChatSupport = () => {
         selectedConversation.user_id || selectedConversation.id
       );
 
-      console.log('File ready to send:', file.name, formData);
       await loadData(false);
     } catch (err) {
       console.error('Error sending file:', err);
@@ -569,6 +571,21 @@ const ChatSupport = () => {
             {message.message_type === 'voice' ? (
               <div className="student-chat-audio">
                 <AuthenticatedAudio message={message} />
+                {message.ai_analysis_requested ? (
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    label={`Voice-emotion signal: ${message.ai_analysis_status || 'processing'}`}
+                    sx={{ mt: 1 }}
+                  />
+                ) : (
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    label="Sent without AI analysis"
+                    sx={{ mt: 1 }}
+                  />
+                )}
               </div>
             ) : (
               formatMessageText(message.message).map((paragraph, idx) => (
@@ -752,6 +769,21 @@ const ChatSupport = () => {
                 </Button>
               </div>
             )}
+
+            <Alert severity="info" sx={{ mb: 1 }}>
+              When enabled, your voice message may be analyzed for emotional tone and included as supporting screening evidence. Message delivery does not depend on analysis.
+            </Alert>
+
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={analyzeVoiceTone}
+                  onChange={(event) => setAnalyzeVoiceTone(event.target.checked)}
+                  disabled={isRecording || sending}
+                />
+              }
+              label={analyzeVoiceTone ? 'Send and analyze emotional tone' : 'Send without AI analysis'}
+            />
 
             <div className="student-chat-input-row">
               <Tooltip title={isRecording ? 'Stop Recording' : 'Record Voice Message'}>

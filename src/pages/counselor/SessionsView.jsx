@@ -350,7 +350,7 @@ const SessionsView = () => {
     } else if (session.mode === 'chat') {
       navigate(`/counselor/chat/${session.studentId}`);
     } else if (session.mode === 'voice') {
-      window.location.href = `tel:+9477${session.studentId.slice(-7)}`;
+      window.open(`tel:+9477${session.studentId.slice(-7)}`, '_self');
     }
   };
 
@@ -392,7 +392,7 @@ const SessionsView = () => {
     setActiveStep((prevActiveStep) => prevActiveStep - 1);
   };
 
-  const handleStepReset = () => {
+  const _handleStepReset = () => {
     setActiveStep(0);
   };
 

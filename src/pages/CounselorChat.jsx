@@ -140,11 +140,9 @@ const CounselorChat = () => {
     if (!selectedStudent) return;
     try {
       const receiverId = selectedStudent.user_id || selectedStudent.id;
-      console.log(`📨 Loading messages from student ID: ${receiverId}`);
       const response = await api.get(`/api/chat/messages/${receiverId}`, {
         params: { limit: 100 }
       });
-      console.log(`✅ Loaded ${response.data?.length || 0} messages`);
       setMessages(response.data || []);
     } catch (err) {
       console.error('Error loading messages:', err);
@@ -165,8 +163,6 @@ const CounselorChat = () => {
       setSending(true);
       
       // Debug logging
-      console.log('🔍 Selected Student:', selectedStudent);
-      console.log('🔍 Selected Student ID type:', typeof selectedStudent.id, 'value:', selectedStudent.id);
       
       tempMsgId = Date.now();
       const tempMsg = {
@@ -191,12 +187,9 @@ const CounselorChat = () => {
         message_type: 'text'
       };
       
-      console.log('📨 Request payload:', payload);
-      console.log('📨 Sending to API:', JSON.stringify(payload));
       
       const response = await api.post('/api/chat/send', payload);
 
-      console.log(`✅ Message sent successfully (ID: ${response.data?.id})`);
 
       setMessages(prev => 
         prev.map(m => m.id === tempMsgId ? {
@@ -268,12 +261,10 @@ const CounselorChat = () => {
   // Call handlers
   const handleVoiceCall = () => {
     alert(`Initiating voice call with ${studentInfo?.full_name}...`);
-    console.log('Voice call initiated to:', studentInfo?.id);
   };
 
   const handleVideoCall = () => {
     alert(`Initiating video call with ${studentInfo?.full_name}...`);
-    console.log('Video call initiated to:', studentInfo?.id);
   };
 
   // Voice message handlers
@@ -295,7 +286,6 @@ const CounselorChat = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
         const audioUrl = URL.createObjectURL(audioBlob);
         
-        console.log('🎤 Voice message recorded:', audioBlob.size, 'bytes');
         
         // Send voice message
         try {
@@ -331,7 +321,6 @@ const CounselorChat = () => {
           // Upload to server - use axios with proper headers
           const response = await api.post('/api/chat/send-voice', formData);
           
-          console.log('✅ Voice message sent successfully:', response.data);
           
           // Update with server response
           setMessages(prev => 
@@ -377,7 +366,6 @@ const CounselorChat = () => {
       mediaRecorder.start();
       setIsRecording(true);
       setMenuAnchor(null);
-      console.log('🎤 Recording started...');
     } catch (err) {
       console.error('Error accessing microphone:', err);
       setError('Unable to access microphone: ' + err.message);
@@ -412,7 +400,6 @@ const CounselorChat = () => {
       };
       
       setMessages([...messages, tempMsg]);
-      console.log('File ready to send:', file.name);
       // TODO: Upload to server
       
       loadData(false);

@@ -1,22 +1,9 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Box, Paper, Typography } from '@mui/material';
 
 const DebugAuth = () => {
-  const { isAuthenticated, user, loading, hasAcceptedTerms } = useAuth();
-  
-  useEffect(() => {
-    console.log('Auth State:', {
-      isAuthenticated,
-      user,
-      loading,
-      hasAcceptedTerms,
-      localStorage: {
-        user: localStorage.getItem('user'),
-        termsAccepted: localStorage.getItem('termsAccepted')
-      }
-    });
-  }, [isAuthenticated, user, loading, hasAcceptedTerms]);
+  const { isAuthenticated, user, hasAcceptedTerms } = useAuth();
   
   if (import.meta.env.MODE !== 'development') return null;
   

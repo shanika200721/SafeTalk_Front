@@ -5,7 +5,6 @@ const Welcome = () => {
   const navigate = useNavigate();
   
   React.useEffect(() => {
-    console.log('📄 Welcome component rendered');
   }, []);
 
   return (

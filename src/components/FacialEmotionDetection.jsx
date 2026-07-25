@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -31,10 +31,29 @@ import {
  * - Display mood summary and statistics
  * - Monitor emotional wellbeing in real-time
  */
+const emotionMoodMap = {
+  happy: 90,
+  surprised: 75,
+  neutral: 50,
+  sad: 30,
+  angry: 25,
+  fearful: 20,
+  disgusted: 15,
+};
+
+const emotionColors = {
+  happy: '#4caf50',
+  surprised: '#ff9800',
+  neutral: '#9e9e9e',
+  sad: '#2196f3',
+  angry: '#f44336',
+  fearful: '#9c27b0',
+  disgusted: '#795548',
+};
+
 const FacialEmotionDetection = ({ open, onClose }) => {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
-  const canvasRef = useRef(null);
 
   // State management
   const [analyzing, setAnalyzing] = useState(false);
@@ -46,55 +65,7 @@ const FacialEmotionDetection = ({ open, onClose }) => {
   const [videoReady, setVideoReady] = useState(false);
   const [sessionDuration, setSessionDuration] = useState(0);
 
-  // Emotion to mood mapping
-  const emotionMoodMap = {
-    happy: 90,
-    surprised: 75,
-    neutral: 50,
-    sad: 30,
-    angry: 25,
-    fearful: 20,
-    disgusted: 15,
-  };
-
-  const emotionColors = {
-    happy: '#4caf50',
-    surprised: '#ff9800',
-    neutral: '#9e9e9e',
-    sad: '#2196f3',
-    angry: '#f44336',
-    fearful: '#9c27b0',
-    disgusted: '#795548',
-  };
-
-  // Initialize webcam
-  useEffect(() => {
-    if (open) {
-      initializeCamera();
-      // Add timeout to enable UI after 3 seconds even if camera fails
-      const timeoutId = setTimeout(() => {
-        setVideoReady(true);
-      }, 3000);
-      return () => clearTimeout(timeoutId);
-    }
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, [open]);
-
-  // Timer for session duration
-  useEffect(() => {
-    if (analyzing) {
-      const interval = setInterval(() => {
-        setSessionDuration((prev) => prev + 1);
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [analyzing]);
-
-  const initializeCamera = async () => {
+  const initializeCamera = useCallback(async () => {
     try {
       setError(null);
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -109,13 +80,38 @@ const FacialEmotionDetection = ({ open, onClose }) => {
           setVideoReady(true);
         };
       }
-    } catch (err) {
-      console.error('Camera error:', err);
+    } catch {
       setError('Failed to access camera. Please allow camera permissions and try again.');
-      // Set videoReady to true anyway so user can see the interface
       setVideoReady(true);
     }
-  };
+  }, []);
+
+  // Initialize webcam
+  useEffect(() => {
+    if (open) {
+      window.queueMicrotask(initializeCamera);
+      // Add timeout to enable UI after 3 seconds even if camera fails
+      const timeoutId = setTimeout(() => {
+        setVideoReady(true);
+      }, 3000);
+      return () => clearTimeout(timeoutId);
+    }
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [initializeCamera, open]);
+
+  // Timer for session duration
+  useEffect(() => {
+    if (analyzing) {
+      const interval = setInterval(() => {
+        setSessionDuration((prev) => prev + 1);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [analyzing]);
 
   // Simulate facial emotion detection (using mock data)
   // In production, integrate with face-api.js or TensorFlow.js
@@ -124,14 +120,15 @@ const FacialEmotionDetection = ({ open, onClose }) => {
       setAnalyzing(true);
 
       // Simulate emotion detection over 5 seconds
+      const sample = emotionHistory.length + 1;
       const mockEmotions = {
-        happy: Math.random() * 100,
-        surprised: Math.random() * 50,
-        neutral: Math.random() * 75,
-        sad: Math.random() * 30,
-        angry: Math.random() * 25,
-        fearful: Math.random() * 20,
-        disgusted: Math.random() * 15,
+        happy: (sample * 17) % 100,
+        surprised: (sample * 11) % 50,
+        neutral: 40 + ((sample * 7) % 35),
+        sad: (sample * 5) % 30,
+        angry: (sample * 3) % 25,
+        fearful: (sample * 2) % 20,
+        disgusted: sample % 15,
       };
 
       // Find dominant emotion
@@ -163,8 +160,7 @@ const FacialEmotionDetection = ({ open, onClose }) => {
           detectFacialEmotions();
         }
       }, 3000);
-    } catch (err) {
-      console.error('Emotion detection error:', err);
+    } catch {
       setError('Error detecting emotions. Please try again.');
       setAnalyzing(false);
     }

@@ -22,12 +22,16 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
 const consentOptions = [
-  ['profile_processing', 'Profile processing', 'Required before submitting profile assessment details.'],
+  ['profile_processing', 'Profile processing', 'Legacy combined profile consent retained for existing records.'],
+  ['profile_data_storage', 'Profile data storage', 'Required before saving profile assessment drafts or submissions.'],
+  ['profile_model_processing', 'Profile model processing', 'Required before profile answers are processed by the verified profile model.'],
   ['dass21_processing', 'DASS-21 processing', 'Required before submitting or updating questionnaire responses.'],
   ['mood_processing', 'Mood check-in processing', 'Required before creating or updating daily check-ins.'],
   ['text_processing', 'Automated text analysis', 'Optional. Direct counselor chat is not blocked by this consent.'],
   ['voice_processing', 'Voice messages', 'Optional until you record or upload voice messages.'],
-  ['face_processing', 'Facial data processing', 'Optional and not pre-granted.'],
+  ['face_processing', 'Facial data processing', 'Legacy combined facial consent retained for existing records.'],
+  ['facial_capture', 'Facial capture', 'Optional. Required before the camera can capture an image.'],
+  ['facial_model_processing', 'Facial model processing', 'Optional. Required before an explicitly captured image can be processed.'],
   ['behavioral_processing', 'Behavioral data processing', 'Optional and not pre-granted.'],
   ['counselor_escalation', 'Counselor escalation', 'Allows risk-related information to be surfaced for counselor review.'],
   ['research_data_use', 'Research data use', 'Optional research use. Withdrawal does not delete historical records in this phase.'],

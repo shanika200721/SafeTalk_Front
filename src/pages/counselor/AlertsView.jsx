@@ -215,19 +215,6 @@ const AlertsView = () => {
     }
   };
 
-  const getTimeAgo = (timestamp) => {
-    const now = new Date();
-    const alertTime = new Date(timestamp);
-    const diffMs = now - alertTime;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 60) return `${diffMins} minutes ago`;
-    if (diffHours < 24) return `${diffHours} hours ago`;
-    return `${diffDays} days ago`;
-  };
-
   const filteredAlerts = alerts.filter(alert => {
     const matchesSearch = alert.student.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          alert.studentId.toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -90,7 +90,6 @@ const DailyCheckin = () => {
           setMoodPrediction(null);
         }
       } catch {
-        console.log('No check-in today yet or API error');
         setMode('form');
       } finally {
         setLoading(false);
