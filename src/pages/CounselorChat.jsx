@@ -776,6 +776,22 @@ const CounselorChat = () => {
                                         }}
                                       />
                                     </Box>
+                                    {!isUserMessage && (
+                                      <Chip
+                                        size="small"
+                                        variant="outlined"
+                                        label={
+                                          msg.ai_analysis_requested
+                                            ? `Supporting voice-emotion signal: ${msg.ai_analysis_status || 'processing'}`
+                                            : 'Voice-emotion signal not requested'
+                                        }
+                                        sx={{
+                                          alignSelf: 'flex-start',
+                                          borderColor: isUserMessage ? 'rgba(255,255,255,0.6)' : '#90caf9',
+                                          color: isUserMessage ? 'white' : '#1f4f76',
+                                        }}
+                                      />
+                                    )}
                                     <Typography 
                                       variant="caption" 
                                       sx={{

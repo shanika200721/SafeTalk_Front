@@ -25,11 +25,15 @@ import {
   AttachFile as AttachFileIcon,
   Call as CallIcon,
   Close as CloseIcon,
+  Delete as DeleteIcon,
   Menu as MenuIcon,
   Mic as MicIcon,
+  Pause as PauseIcon,
+  PlayArrow as PlayArrowIcon,
   MoreVert as MoreVertIcon,
   Refresh as RefreshIcon,
   Send as SendIcon,
+  Stop as StopIcon,
   Videocam as VideoCallIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -38,6 +42,8 @@ import { EmergencySOS } from '../components/common/EmergencySOS';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import AuthenticatedAudio from '../components/common/AuthenticatedAudio';
+
+const MAX_RECORDING_SECONDS = Number(import.meta.env.VITE_MAX_VOICE_RECORDING_SECONDS || 90);
 
 const formatMessageText = (text) => {
   if (!text) return [];
@@ -62,13 +68,20 @@ const ChatSupport = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [analyzeVoiceTone, setAnalyzeVoiceTone] = useState(false);
+  const [voiceState, setVoiceState] = useState('idle');
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [recordedVoice, setRecordedVoice] = useState(null);
+  const [previewPlaying, setPreviewPlaying] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState(null);
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const previewAudioRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const streamRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const recordingTimerRef = useRef(null);
+  const discardRecordingRef = useRef(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -83,6 +96,40 @@ const ChatSupport = () => {
     const interval = setInterval(() => loadData(false), 5000);
     return () => clearInterval(interval);
   }, []);
+
+  const stopMicrophoneTracks = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+  }, []);
+
+  const clearRecordingTimer = useCallback(() => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  }, []);
+
+  const clearRecordedVoice = useCallback(() => {
+    if (recordedVoice?.url) {
+      URL.revokeObjectURL(recordedVoice.url);
+    }
+    setRecordedVoice(null);
+    setPreviewPlaying(false);
+  }, [recordedVoice]);
+
+  useEffect(() => () => {
+    discardRecordingRef.current = true;
+    clearRecordingTimer();
+    stopMicrophoneTracks();
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    if (recordedVoice?.url) {
+      URL.revokeObjectURL(recordedVoice.url);
+    }
+  }, [clearRecordingTimer, stopMicrophoneTracks, recordedVoice]);
 
   useEffect(() => {
     const savedConversationId = localStorage.getItem('selectedChatConversationId');
@@ -266,9 +313,23 @@ const ChatSupport = () => {
 
   const handleStartVoiceMessage = async () => {
     try {
+      if (!selectedConversation) {
+        setError('Select a counselor before recording a voice message.');
+        return;
+      }
+      if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+        setVoiceState('analysis_unavailable');
+        setError('Voice recording is not supported in this browser.');
+        return;
+      }
+      clearRecordedVoice();
+      setVoiceState('requesting_permission');
+      setRecordingSeconds(0);
+      discardRecordingRef.current = false;
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
-      const mediaRecorder = new MediaRecorder(stream);
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/wav';
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -278,94 +339,137 @@ const ChatSupport = () => {
         }
       };
 
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-        const audioUrl = URL.createObjectURL(audioBlob);
-
-        try {
-          if (!selectedConversation) {
-            setError('No conversation selected');
-            return;
-          }
-
-          const receiverId = selectedConversation.user_id || selectedConversation.id;
-          if (!receiverId) {
-            setError('Invalid receiver ID');
-            return;
-          }
-
-          const formData = new FormData();
-          formData.append('audio', audioBlob, 'voice_message.wav');
-          formData.append('receiver_id', receiverId.toString());
-          formData.append('analyze_emotional_tone', analyzeVoiceTone ? 'true' : 'false');
-
-          const tempMsgId = Date.now();
-          const tempMsg = {
-            id: tempMsgId,
-            sender_id: user?.id,
-            message: 'Voice message',
-            created_at: new Date().toISOString(),
-            message_type: 'voice',
-            audio_url: audioUrl,
-            ai_analysis_requested: analyzeVoiceTone,
-            ai_analysis_status: analyzeVoiceTone ? 'pending' : 'not_requested',
-          };
-
-          setMessages((prev) => [...prev, tempMsg]);
-          setSending(true);
-
-          const response = await api.post('/api/chat/send-voice', formData);
-
-          setMessages((prev) =>
-            prev.map((message) =>
-              message.id === tempMsgId
-                ? {
-                    ...response.data,
-                    audio_url: audioUrl,
-                    sender_id: parseInt(response.data.sender_id, 10),
-                  }
-                : message
-            )
-          );
-        } catch (err) {
-          console.error('Error sending voice message:', err);
-
-          let errorMsg = 'Failed to send voice message';
-          if (err.response?.data?.detail) {
-            errorMsg = Array.isArray(err.response.data.detail)
-              ? err.response.data.detail
-                  .map((item) => `${item.loc?.[1]}: ${item.msg}`)
-                  .join('; ')
-              : err.response.data.detail;
-          } else if (err.message) {
-            errorMsg = err.message;
-          }
-
-          setError(errorMsg);
-          setMessages((prev) =>
-            prev.filter((message) => message.message !== 'Voice message')
-          );
-        } finally {
-          setSending(false);
-          if (streamRef.current) {
-            streamRef.current.getTracks().forEach((track) => track.stop());
-            streamRef.current = null;
-          }
+      mediaRecorder.onstop = () => {
+        clearRecordingTimer();
+        stopMicrophoneTracks();
+        setIsRecording(false);
+        if (discardRecordingRef.current) {
+          audioChunksRef.current = [];
+          setVoiceState('idle');
+          return;
         }
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        if (!audioBlob.size) {
+          setVoiceState('analysis_failed');
+          setError('Recording was empty. Please try again.');
+          return;
+        }
+        const audioUrl = URL.createObjectURL(audioBlob);
+        setRecordedVoice({ blob: audioBlob, url: audioUrl, duration: recordingSeconds || 1, mimeType });
+        setVoiceState('recorded');
       };
 
       mediaRecorder.start();
       setIsRecording(true);
+      setVoiceState('recording');
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((current) => {
+          const next = current + 1;
+          if (next >= MAX_RECORDING_SECONDS && mediaRecorderRef.current?.state === 'recording') {
+            mediaRecorderRef.current.stop();
+          }
+          return next;
+        });
+      }, 1000);
     } catch (err) {
       console.error('Error accessing microphone:', err);
+      clearRecordingTimer();
+      stopMicrophoneTracks();
+      setIsRecording(false);
+      setVoiceState('analysis_failed');
       setError(`Unable to access microphone: ${err.message}`);
     }
   };
 
   const handleStopVoiceMessage = () => {
-    if (mediaRecorderRef.current) {
+    if (mediaRecorderRef.current?.state === 'recording') {
       mediaRecorderRef.current.stop();
-      setIsRecording(false);
+    }
+  };
+
+  const handleCancelRecording = () => {
+    discardRecordingRef.current = true;
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    clearRecordingTimer();
+    stopMicrophoneTracks();
+    setIsRecording(false);
+    setRecordingSeconds(0);
+    setVoiceState('idle');
+  };
+
+  const handleDeleteRecording = () => {
+    clearRecordedVoice();
+    setRecordingSeconds(0);
+    setVoiceState('idle');
+  };
+
+  const handlePreviewToggle = () => {
+    const audio = previewAudioRef.current;
+    if (!audio) return;
+    if (audio.paused) {
+      audio.play();
+      setPreviewPlaying(true);
+    } else {
+      audio.pause();
+      setPreviewPlaying(false);
+    }
+  };
+
+  const handleSendRecordedVoice = async () => {
+    if (!recordedVoice || !selectedConversation) return;
+    const receiverId = selectedConversation.user_id || selectedConversation.id;
+    const extension = recordedVoice.mimeType.includes('webm') ? 'webm' : 'wav';
+    const tempMsgId = Date.now();
+    const tempMsg = {
+      id: tempMsgId,
+      sender_id: user?.id,
+      message: 'Voice message',
+      created_at: new Date().toISOString(),
+      message_type: 'voice',
+      audio_url: recordedVoice.url,
+      ai_analysis_requested: analyzeVoiceTone,
+      ai_analysis_status: analyzeVoiceTone ? 'pending' : 'not_requested',
+      delivery_status: 'uploading',
+    };
+
+    try {
+      setVoiceState('uploading');
+      setSending(true);
+      setMessages((prev) => [...prev, tempMsg]);
+      const formData = new FormData();
+      formData.append('audio', recordedVoice.blob, `voice_message.${extension}`);
+      formData.append('receiver_id', receiverId.toString());
+      formData.append('analyze_emotional_tone', analyzeVoiceTone ? 'true' : 'false');
+      const response = await api.post('/api/chat/send-voice', formData);
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === tempMsgId
+            ? {
+                ...response.data,
+                sender_id: parseInt(response.data.sender_id, 10),
+              }
+            : message
+        )
+      );
+      setVoiceState(analyzeVoiceTone ? 'analysis_unavailable' : 'sent');
+      await loadData(false);
+      setRecordedVoice(null);
+      setPreviewPlaying(false);
+    } catch (err) {
+      console.error('Error sending voice message:', err);
+      const detail = err.response?.data?.detail;
+      const errorMsg = typeof detail === 'object' ? detail.message || JSON.stringify(detail) : detail || err.message || 'Failed to send voice message';
+      setError(errorMsg);
+      setVoiceState('analysis_failed');
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === tempMsgId ? { ...message, delivery_status: 'failed', failed: true } : message
+        )
+      );
+    } finally {
+      setSending(false);
     }
   };
 
@@ -763,15 +867,50 @@ const ChatSupport = () => {
             {isRecording && (
               <div className="student-chat-recording">
                 <span />
-                <Typography>Recording voice message...</Typography>
-                <Button size="small" variant="outlined" onClick={handleStopVoiceMessage}>
-                  Stop and Send
+                <Typography>
+                  Recording voice message... {recordingSeconds}s / {MAX_RECORDING_SECONDS}s
+                </Typography>
+                <Button size="small" variant="outlined" startIcon={<StopIcon />} onClick={handleStopVoiceMessage}>
+                  Stop Recording
+                </Button>
+                <Button size="small" variant="text" onClick={handleCancelRecording}>
+                  Cancel
+                </Button>
+              </div>
+            )}
+
+            {recordedVoice && (
+              <div className="student-chat-recording">
+                <Typography>Preview voice message before sending</Typography>
+                <audio
+                  ref={previewAudioRef}
+                  src={recordedVoice.url}
+                  onEnded={() => setPreviewPlaying(false)}
+                  preload="metadata"
+                >
+                  <track kind="captions" />
+                </audio>
+                <Tooltip title={previewPlaying ? 'Pause preview' : 'Play preview'}>
+                  <IconButton size="small" onClick={handlePreviewToggle}>
+                    {previewPlaying ? <PauseIcon /> : <PlayArrowIcon />}
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Delete recording">
+                  <IconButton size="small" onClick={handleDeleteRecording} disabled={sending}>
+                    <DeleteIcon />
+                  </IconButton>
+                </Tooltip>
+                <Button size="small" variant="contained" onClick={handleSendRecordedVoice} disabled={sending}>
+                  Send
+                </Button>
+                <Button size="small" variant="text" onClick={handleDeleteRecording} disabled={sending}>
+                  Cancel
                 </Button>
               </div>
             )}
 
             <Alert severity="info" sx={{ mb: 1 }}>
-              When enabled, your voice message may be analyzed for emotional tone and included as supporting screening evidence. Message delivery does not depend on analysis.
+              When enabled, this voice message may be analyzed for emotional tone and used as optional supporting screening evidence. The result is not a diagnosis.
             </Alert>
 
             <FormControlLabel
@@ -779,18 +918,35 @@ const ChatSupport = () => {
                 <Checkbox
                   checked={analyzeVoiceTone}
                   onChange={(event) => setAnalyzeVoiceTone(event.target.checked)}
-                  disabled={isRecording || sending}
+                  disabled={isRecording || sending || Boolean(recordedVoice)}
                 />
               }
               label={analyzeVoiceTone ? 'Send and analyze emotional tone' : 'Send without AI analysis'}
             />
+            {voiceState !== 'idle' && (
+              <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>
+                Voice-emotion analysis: {
+                  {
+                    requesting_permission: 'Requesting microphone permission',
+                    recording: 'Recording',
+                    recorded: 'Ready to preview',
+                    uploading: 'Uploading',
+                    sent: 'Not requested',
+                    analysis_pending: 'Processing',
+                    analysis_succeeded: 'Available',
+                    analysis_failed: 'Failed',
+                    analysis_unavailable: 'Unavailable',
+                  }[voiceState] || voiceState
+                }
+              </Typography>
+            )}
 
             <div className="student-chat-input-row">
               <Tooltip title={isRecording ? 'Stop Recording' : 'Record Voice Message'}>
                 <span>
                   <IconButton
                     onClick={isRecording ? handleStopVoiceMessage : handleStartVoiceMessage}
-                    disabled={!selectedConversation || sending}
+                    disabled={!selectedConversation || sending || Boolean(recordedVoice)}
                     className="student-chat-tool-btn"
                   >
                     <MicIcon />
