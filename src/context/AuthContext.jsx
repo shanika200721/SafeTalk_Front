@@ -1,8 +1,15 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import api from '../services/api';
+import {
+  LEGACY_USER_KEY,
+  STUDENT_USER_KEY,
+  clearAuthSession,
+  getStoredToken,
+  storeAuthSession,
+} from '../services/api';
 
 const AuthContext = createContext();
-const COUNSELOR_ROLES = new Set(['counselor', 'admin', 'psychiatrist']);
+const COUNSELOR_ROLES = new Set(['counselor', 'psychiatrist']);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -14,7 +21,7 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('user');
+    const savedUser = localStorage.getItem(STUDENT_USER_KEY) || localStorage.getItem(LEGACY_USER_KEY);
     if (!savedUser) return null;
     try {
       return JSON.parse(savedUser);
@@ -23,13 +30,43 @@ export const AuthProvider = ({ children }) => {
       return null;
     }
   });
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(() => Boolean(getStoredToken()));
   const [error, setError] = useState(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    const hydrate = async () => {
+      const token = getStoredToken();
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const response = await api.get('/api/auth/me');
+        if (!cancelled) {
+          storeAuthSession(token, response.data);
+          setUser(response.data);
+        }
+      } catch {
+        if (!cancelled) {
+          clearAuthSession();
+          setUser(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    hydrate();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const storeSession = (token, nextUser) => {
-    localStorage.setItem('access_token', token);
-    localStorage.setItem('user', JSON.stringify(nextUser));
-    localStorage.setItem('user_role', nextUser.role);
+    storeAuthSession(token, nextUser);
     setUser(nextUser);
   };
 
@@ -63,7 +100,8 @@ export const AuthProvider = ({ children }) => {
       const registeredUser = response.data;
       const loginResult = await login(userData.username, userData.password);
       if (!loginResult.success) {
-        localStorage.setItem('user', JSON.stringify(registeredUser));
+        localStorage.setItem(STUDENT_USER_KEY, JSON.stringify(registeredUser));
+        localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(registeredUser));
         setUser(registeredUser);
         return { success: true, user: registeredUser };
       }
@@ -77,16 +115,15 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('user_role');
+    clearAuthSession();
     localStorage.removeItem('termsAccepted');
   };
 
   const updateUser = (userData) => {
     const updatedUser = { ...user, ...userData };
     setUser(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser));
+    localStorage.setItem(STUDENT_USER_KEY, JSON.stringify(updatedUser));
+    localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(updatedUser));
   };
 
   const acceptTerms = () => {
@@ -104,6 +141,7 @@ export const AuthProvider = ({ children }) => {
     acceptTerms,
     isAuthenticated: !!user,
     isCounselor: COUNSELOR_ROLES.has(user?.role),
+    isAdmin: user?.role === 'admin',
     isStudent: user?.role === 'student',
     hasAcceptedTerms: localStorage.getItem('termsAccepted') === 'true',
   };

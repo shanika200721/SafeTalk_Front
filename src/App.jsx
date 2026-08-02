@@ -41,8 +41,16 @@ import TermsOfService from './pages/TermsOfService';
 import Resources from './pages/Resources';
 import Settings from './pages/Settings';
 import AdminPortal from './pages/admin/AdminPortal';
+import FacialAnalysis from './pages/FacialAnalysis';
+import STUDENT_ROUTES from './routes/studentRoutes';
 
-const COUNSELOR_ROLES = new Set(['counselor', 'admin', 'psychiatrist']);
+const COUNSELOR_ROLES = new Set(['counselor', 'psychiatrist']);
+
+const LoadingScreen = () => (
+  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+    <p>Loading...</p>
+  </div>
+);
 
 // Error boundary
 class ErrorBoundary extends React.Component {
@@ -72,18 +80,23 @@ class ErrorBoundary extends React.Component {
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, isStudent, loading } = useAuth();
   
   if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <p>Loading...</p>
-      </div>
-    );
+    return <LoadingScreen />;
   }
   
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (!isStudent) {
+    return (
+      <div style={{ padding: '20px', color: '#7f1d1d', fontSize: '18px' }}>
+        <h3>Unauthorized</h3>
+        <p>You do not have permission to use the student portal.</p>
+      </div>
+    );
   }
   
   return children;
@@ -94,17 +107,17 @@ const CounselorRoute = ({ children }) => {
   const { isAuthenticated, user, loading } = useAuth();
   
   if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <p>Loading...</p>
-      </div>
-    );
+    return <LoadingScreen />;
   }
   
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
   
+  if (user?.role === 'admin') {
+    return <Navigate to="/admin" replace />;
+  }
+
   if (!COUNSELOR_ROLES.has(user?.role)) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -116,11 +129,7 @@ const AdminRoute = ({ children }) => {
   const { isAuthenticated, user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <p>Loading...</p>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (!isAuthenticated) {
@@ -128,7 +137,7 @@ const AdminRoute = ({ children }) => {
   }
 
   if (user?.role !== 'admin') {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={COUNSELOR_ROLES.has(user?.role) ? '/counselor' : '/dashboard'} replace />;
   }
 
   return children;
@@ -146,9 +155,10 @@ function AppRoutes() {
       <Route path="/register/psychiatric" element={<PsychiatricRegister />} />
 
       {/* Student Routes (Protected) */}
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path={STUDENT_ROUTES.DASHBOARD} element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/dashboard-new" element={<ProtectedRoute><DashboardNew /></ProtectedRoute>} />
-      <Route path="/profile-assessment" element={<ProtectedRoute><ProfileAssessment /></ProtectedRoute>} />
+      <Route path={STUDENT_ROUTES.PROFILE_ASSESSMENT} element={<ProtectedRoute><ProfileAssessment /></ProtectedRoute>} />
+      <Route path={STUDENT_ROUTES.FACIAL_ANALYSIS} element={<ProtectedRoute><FacialAnalysis /></ProtectedRoute>} />
       <Route path="/dass21" element={<ProtectedRoute><DASS21Assessment /></ProtectedRoute>} />
       <Route path="/dass21-assessment" element={<ProtectedRoute><DASS21Assessment /></ProtectedRoute>} />
       <Route path="/daily-checkin" element={<ProtectedRoute><DailyCheckin /></ProtectedRoute>} />

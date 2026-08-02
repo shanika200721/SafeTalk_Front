@@ -107,7 +107,9 @@ const TermsOfService = () => {
         )
       );
       acceptTerms();
-      if (user?.role === 'counselor' || user?.role === 'psychiatrist' || user?.role === 'admin') {
+      if (user?.role === 'admin') {
+        navigate('/admin');
+      } else if (user?.role === 'counselor' || user?.role === 'psychiatrist') {
         navigate('/counselor');
       } else {
         navigate('/dashboard');

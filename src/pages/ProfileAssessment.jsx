@@ -34,6 +34,33 @@ const ProfileAssessment = () => {
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(null);
   const [error, setError] = useState('');
+  const [draftMessage, setDraftMessage] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const errorMessage = (err, fallback) => {
+    const statusCode = err.response?.status;
+    const detail = err.response?.data?.detail;
+    if (statusCode === 401) return 'Session expired. Sign in again.';
+    if (statusCode === 403) return 'You do not have permission or the required consent.';
+    if (statusCode === 404) return 'The requested assessment or page was not found.';
+    if (statusCode === 422) return 'Some profile answers are invalid or missing.';
+    if (statusCode >= 500) return 'The request could not be completed.';
+    return typeof detail === 'string' ? detail : detail?.message || fallback;
+  };
+
+  const applyFieldErrors = (err) => {
+    const detail = err.response?.data?.detail;
+    const questions = detail?.questions || [];
+    const questionId = detail?.question_id;
+    const nextErrors = {};
+    questions.forEach((id) => {
+      nextErrors[id] = detail?.code === 'REQUIRED_FIELDS_MISSING' ? 'This answer is required.' : 'This answer is invalid.';
+    });
+    if (questionId) {
+      nextErrors[questionId] = detail?.code === 'INVALID_OPTION' ? 'Choose one of the listed options.' : 'This answer is invalid.';
+    }
+    setFieldErrors(nextErrors);
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -43,9 +70,9 @@ const ProfileAssessment = () => {
           studentService.getCurrentProfileAssessment(),
         ]);
         setContract(questions);
-        setResponses(current?.responses || {});
+        setResponses(current?.responses ?? {});
       } catch (err) {
-        setError(err.response?.data?.detail?.message || err.response?.data?.detail || 'Unable to load profile assessment.');
+        setError(errorMessage(err, 'Unable to load profile assessment.'));
       } finally {
         setLoading(false);
       }
@@ -64,25 +91,37 @@ const ProfileAssessment = () => {
 
   const stepQuestions = questionsByStep[steps[activeStep]] || [];
   const isReview = steps[activeStep] === 'Review and Submit';
-  const requiredMissing = stepQuestions.filter((question) => question.required && !responses[question.question_id]);
+  const hasAnswer = (questionId) => responses[questionId] !== undefined && responses[questionId] !== null && responses[questionId] !== '';
+  const requiredMissing = stepQuestions.filter((question) => question.required && !hasAnswer(question.question_id));
   const completedCount = Object.keys(responses).length;
   const progress = contract?.questions?.length ? Math.round((completedCount / contract.questions.length) * 100) : 0;
 
   const updateResponse = (questionId, value) => {
     setResponses((current) => ({ ...current, [questionId]: value }));
     setError('');
+    setDraftMessage('');
+    setFieldErrors((current) => {
+      const next = { ...current };
+      delete next[questionId];
+      return next;
+    });
   };
 
   const saveDraft = async () => {
     setSaving(true);
     setError('');
     try {
-      await studentService.saveProfileAssessmentDraft({
+      const result = await studentService.saveProfileAssessmentDraft({
         questionnaire_version: contract.questionnaire_version,
         responses,
       });
+      if (result?.responses) {
+        setResponses(result.responses);
+      }
+      setDraftMessage('Draft saved.');
     } catch (err) {
-      setError(err.response?.data?.detail?.message || err.response?.data?.detail || 'Draft could not be saved.');
+      applyFieldErrors(err);
+      setError(errorMessage(err, 'Draft could not be saved.'));
     } finally {
       setSaving(false);
     }
@@ -107,8 +146,8 @@ const ProfileAssessment = () => {
       });
       setSubmitted(result);
     } catch (err) {
-      const detail = err.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : detail?.message || 'Profile assessment could not be submitted.');
+      applyFieldErrors(err);
+      setError(errorMessage(err, 'Profile assessment could not be submitted.'));
     } finally {
       setSaving(false);
     }
@@ -131,7 +170,7 @@ const ProfileAssessment = () => {
             <Typography variant="h4">Profile Assessment Saved</Typography>
             <Alert severity="success">{submitted.message}</Alert>
             <Typography color="text.secondary">
-              Prediction status: {submitted.prediction_status || 'unavailable'}. No diagnostic score is shown here.
+              Assessment status: {submitted.assessment_status || submitted.status}. Prediction status: {submitted.prediction_status || 'unavailable'}. No diagnostic score is shown here.
             </Typography>
             <Button variant="contained" onClick={() => navigate('/dashboard')}>Return to Dashboard</Button>
           </Stack>
@@ -168,6 +207,7 @@ const ProfileAssessment = () => {
           </Stepper>
 
           {error && <Alert severity="warning">{error}</Alert>}
+          {draftMessage && <Alert severity="success">{draftMessage}</Alert>}
 
           {isReview ? (
             <Stack spacing={2}>
@@ -175,7 +215,7 @@ const ProfileAssessment = () => {
               {(contract?.questions || []).map((question) => (
                 <Box key={question.question_id} sx={{ borderBottom: '1px solid #e2e8f0', pb: 1 }}>
                   <Typography variant="subtitle2">{question.label}</Typography>
-                  <Typography color="text.secondary">{responses[question.question_id] || 'Skipped'}</Typography>
+                  <Typography color="text.secondary">{hasAnswer(question.question_id) ? String(responses[question.question_id]) : 'Skipped'}</Typography>
                 </Box>
               ))}
             </Stack>
@@ -187,7 +227,7 @@ const ProfileAssessment = () => {
                   <FormLabel component="legend">{question.label}</FormLabel>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{question.help_text}</Typography>
                   <RadioGroup
-                    value={responses[question.question_id] || ''}
+                    value={responses[question.question_id] ?? ''}
                     onChange={(event) => updateResponse(question.question_id, event.target.value)}
                   >
                     {question.options.map((item) => (
@@ -197,6 +237,7 @@ const ProfileAssessment = () => {
                       <FormControlLabel value="" control={<Radio />} label="Skip optional field" onChange={() => updateResponse(question.question_id, '')} />
                     )}
                   </RadioGroup>
+                  {fieldErrors[question.question_id] && <Alert severity="warning" sx={{ mt: 1 }}>{fieldErrors[question.question_id]}</Alert>}
                 </FormControl>
               ))}
             </Stack>

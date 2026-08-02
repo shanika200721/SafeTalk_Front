@@ -21,6 +21,7 @@ import wellnessService from '../services/wellnessService';
 import { Sidebar } from '../components/layout/Sidebar';
 import { EmergencySOS } from '../components/common/EmergencySOS';
 import { WellnessCard } from '../components/wellness/WellnessLayout';
+import STUDENT_ROUTES from '../routes/studentRoutes';
 
 const fallbackMoodData = [
   { day: 'Mon', mood: 6 },
@@ -112,18 +113,19 @@ const Dashboard = () => {
   const summary = wellness.summary;
   const progress = summary.assessment_progress || fallbackWellness.summary.assessment_progress;
   const counts = summary.activity_counts || fallbackWellness.summary.activity_counts;
-  const profileAction = profileStatus?.status === 'draft' ? 'Continue Assessment' : profileStatus?.status === 'completed' ? 'View Summary' : profileStatus?.status === 'needs_update' ? 'Update Profile' : 'Start Profile Assessment';
-  const profileText = profileStatus?.status === 'draft'
+  const assessmentStatus = profileStatus?.assessment_status || profileStatus?.status || 'not_started';
+  const profileAction = assessmentStatus === 'draft' ? 'Continue Assessment' : ['submitted', 'completed'].includes(assessmentStatus) ? 'View Summary' : ['needs_update', 'stale'].includes(assessmentStatus) ? 'Update Profile' : 'Start Profile Assessment';
+  const profileText = assessmentStatus === 'draft'
     ? 'Your profile assessment is partly complete.'
-    : profileStatus?.status === 'completed'
+    : ['submitted', 'completed'].includes(assessmentStatus)
       ? 'Profile assessment completed.'
-      : profileStatus?.status === 'needs_update'
+      : ['needs_update', 'stale'].includes(assessmentStatus)
         ? 'Profile update recommended.'
         : 'Complete your background profile to personalize your wellbeing support.';
   const faceState = facialStatus?.runtime_state || 'inactive';
   const faceMessage = facialStatus?.message || 'Facial analysis is currently unavailable. You may review the feature and privacy information, but no facial prediction will be generated.';
   const screeningInputs = [
-    ['Profile', profileStatus?.status === 'completed' ? 'Completed' : profileStatus?.status === 'draft' ? 'Not completed' : profileStatus?.status === 'needs_update' ? 'Update recommended' : 'Not completed'],
+    ['Profile', ['submitted', 'completed'].includes(assessmentStatus) ? 'Completed' : assessmentStatus === 'draft' ? 'Not completed' : ['needs_update', 'stale'].includes(assessmentStatus) ? 'Update recommended' : 'Not completed'],
     ['DASS-21', progress.last_dass ? 'Completed' : 'Available'],
     ['Daily Mood', progress.last_mood ? 'Completed' : 'Available'],
     ['Text evidence', 'Optional'],
@@ -231,10 +233,10 @@ const Dashboard = () => {
           <section className="wellness-card-grid wellness-card-grid-2" aria-label="Profile and facial check-in cards">
             <WellnessCard icon={ClipboardCheckIcon} title="Profile Assessment" subtitle={profileText}>
               <div className="wellness-card-stack">
-                <strong className="wellness-card-value">{profileStatus?.status ? profileStatus.status.replaceAll('_', ' ') : 'Not started'}</strong>
+                <strong className="wellness-card-value">{assessmentStatus.replaceAll('_', ' ')}</strong>
                 {profileStatus?.completed_at && <span>Completed {new Date(profileStatus.completed_at).toLocaleDateString()}</span>}
                 {profileStatus?.stale_at && <span>Update by {new Date(profileStatus.stale_at).toLocaleDateString()}</span>}
-                <Link to="/profile-assessment" className="student-btn student-btn-primary">{profileAction}</Link>
+                <Link to={STUDENT_ROUTES.PROFILE_ASSESSMENT} className="student-btn student-btn-primary">{profileAction}</Link>
               </div>
             </WellnessCard>
 
@@ -245,8 +247,8 @@ const Dashboard = () => {
                 <span>Consent: {facialStatus?.consent?.facial_capture ? 'Capture granted' : 'Capture not granted'}</span>
                 <span>Last capture: {facialStatus?.last_capture_at ? new Date(facialStatus.last_capture_at).toLocaleDateString() : 'None'}</span>
                 <div className="wellness-inline-actions">
-                  <Link to="/facial-analysis" className="student-btn student-btn-primary">Start Facial Check-in</Link>
-                  <Link to="/settings" className="student-btn student-btn-secondary">View Privacy Details</Link>
+                  <Link to={STUDENT_ROUTES.FACIAL_ANALYSIS} className="student-btn student-btn-primary">Start Facial Check-in</Link>
+                  <Link to={STUDENT_ROUTES.SETTINGS} className="student-btn student-btn-secondary">View Privacy Details</Link>
                 </div>
               </div>
             </WellnessCard>
