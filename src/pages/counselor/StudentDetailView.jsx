@@ -1,766 +1,668 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Box,
-  Container,
-  Typography,
-  Paper,
-  Grid,
+  Button,
   Card,
   CardContent,
-  CardHeader,
-  Avatar,
-  Button,
-  CircularProgress,
-  Alert,
   Chip,
+  CircularProgress,
+  Container,
   Divider,
+  FormControl,
+  Grid,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Stack,
+  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  LinearProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
   Tabs,
-  Tab,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
+  TextField,
   Tooltip,
+  Typography,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
-  Edit as EditIcon,
-  Phone as PhoneIcon,
-  Email as EmailIcon,
-  School as SchoolIcon,
-  Warning as WarningIcon,
-  TrendingUp as TrendingUpIcon,
-  History as HistoryIcon,
   Download as DownloadIcon,
-  Chat as ChatIcon,
+  NoteAdd as NoteAddIcon,
+  Refresh as RefreshIcon,
   Save as SaveIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip as ChartTooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import counselorService from '../../services/counselorService';
 
-/**
- * COMPONENT: StudentDetailView
- * 
- * PURPOSE:
- * - Display comprehensive student profile pulled from database
- * - Show student's assessment history, check-ins, and risk data
- * - Allow counselor to view all student information in one place
- * - Enable quick session creation and follow-up scheduling
- * 
- * DATABASE CONNECTION:
- * - Main API: GET /api/counselor/student/{user_id}/dashboard
- * - Returns all student data from:
- *   - Users table (name, email, phone, enrollment)
- *   - Assessments table (risk scores, recommendations)
- *   - DailyCheckIn table (mood, stress, check-in history)
- *   - DASS21Assessment table (depression, anxiety, stress scores)
- *   - ProfileAssessment table (academic, family, social data)
- *   - CounselorSession table (session history)
- *   - Alerts table (critical alerts)
- * 
- * HOW IT WORKS:
- * 1. URL: /counselor/student/{user_id}
- * 2. Component mounts → useEffect triggers
- * 3. Calls counselorService.getStudentDashboard(user_id)
- * 4. Backend fetches all student data from multiple tables
- * 5. Frontend displays in organized tabs/cards
- * 6. Counselor can view, analyze, and take action
- */
+const reviewStatuses = ['NEW', 'UNDER_REVIEW', 'FOLLOW_UP_REQUIRED', 'REFERRED', 'CLOSED'];
+const riskColors = {
+  LOW: 'success',
+  MEDIUM: 'warning',
+  HIGH: 'error',
+  SEVERE: 'secondary',
+};
 
-function TabPanel({ children, value, index, ...other }) {
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`student-tabpanel-${index}`}
-      aria-labelledby={`student-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
-}
+const formatDateTime = (value) => (value ? new Date(value).toLocaleString() : 'N/A');
+const valueOrNA = (value) => (value === null || value === undefined ? 'N/A' : value);
+
+const TabPanel = ({ children, value, index }) => (
+  <Box role="tabpanel" hidden={value !== index} sx={{ pt: 2 }}>
+    {value === index ? children : null}
+  </Box>
+);
 
 const StudentDetailView = () => {
   const navigate = useNavigate();
   const { userId } = useParams();
-
-  // STATE FOR STUDENT DATA
-  const [student, setStudent] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [timeline, setTimeline] = useState([]);
+  const [tab, setTab] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [tabValue, setTabValue] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [reviewForm, setReviewForm] = useState({
+    assessment_id: '',
+    status: 'NEW',
+    review_notes: '',
+    decision: '',
+    risk_judgement: '',
+  });
+  const [noteForm, setNoteForm] = useState({ note_text: '', note_type: 'clinical' });
 
-  // STATE FOR SESSION CREATION
-  const [openSessionDialog, setOpenSessionDialog] = useState(false);
-  const [sessionNotes, setSessionNotes] = useState('');
-  const [creatingSession, setCreatingSession] = useState(false);
-
-  /**
-   * FETCH STUDENT DATA FROM BACKEND
-   * Calls API that queries multiple database tables
-   */
-  const fetchStudentData = async () => {
+  const fetchDetail = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
-
-      const data = await counselorService.getStudentDashboard(userId);
-      setStudent(data);
+      setError('');
+      const [studentData, timelineData] = await Promise.all([
+        counselorService.getStudent(userId),
+        counselorService.getStudentTimeline(userId),
+      ]);
+      setDetail(studentData);
+      setTimeline(timelineData.events || []);
+      setReviewForm((current) => ({
+        ...current,
+        assessment_id: studentData.latest_assessment?.id || '',
+      }));
     } catch (err) {
-      console.error('Error fetching student data:', err);
-      setError('Failed to load student data. Please try again.');
+      setError(err.response?.data?.detail || err.response?.data?.error || 'Unable to load student detail');
     } finally {
       setLoading(false);
     }
-  };
-
-  /**
-   * LIFECYCLE: Fetch data on component mount
-   */
-  useEffect(() => {
-    fetchStudentData();
   }, [userId]);
 
-  /**
-   * HANDLE: Create new session for this student
-   */
-  const handleCreateSession = async () => {
-    if (!student) return;
+  useEffect(() => {
+    fetchDetail();
+  }, [fetchDetail]);
 
+  const trendData = useMemo(() => {
+    if (!detail) return [];
+    const byDate = {};
+    detail.recent_checkins?.forEach((checkin) => {
+      const key = checkin.created_at?.slice(0, 10);
+      if (!key) return;
+      byDate[key] = { ...(byDate[key] || { date: key }), mood: checkin.mood, stress: checkin.stress_level };
+    });
+    detail.assessments?.forEach((assessment) => {
+      const key = assessment.created_at?.slice(0, 10);
+      if (!key) return;
+      byDate[key] = { ...(byDate[key] || { date: key }), fusion: assessment.final_score ?? assessment.model_score };
+    });
+    return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
+  }, [detail]);
+
+  const completionData = useMemo(() => {
+    if (!detail) return [];
+    return [
+      { name: 'DASS-21', value: detail.dass21_assessments?.length || 0 },
+      { name: 'Mood', value: detail.recent_checkins?.length || 0 },
+      { name: 'Fusion', value: detail.assessments?.length || 0 },
+      { name: 'Reviews', value: detail.reviews?.length || 0 },
+    ];
+  }, [detail]);
+
+  const handleCreateReview = async () => {
     try {
-      setCreatingSession(true);
-
-      const sessionData = {
-        user_id: student.user.id,
-        session_type: 'scheduled',
-        risk_level_at_escalation: student.latest_assessment?.risk_level || 'MEDIUM',
-        counselor_notes: sessionNotes,
-      };
-
-      const response = await counselorService.createSession(sessionData);
-
-      // Refresh student data
-      await fetchStudentData();
-
-      setOpenSessionDialog(false);
-      setSessionNotes('');
-
-      // Show success
-      alert('Session created successfully!');
+      setSaving(true);
+      setNotice('');
+      await counselorService.createReview({
+        student_id: Number(userId),
+        assessment_id: reviewForm.assessment_id ? Number(reviewForm.assessment_id) : null,
+        status: reviewForm.status,
+        review_notes: reviewForm.review_notes,
+        decision: reviewForm.decision,
+        risk_judgement: reviewForm.risk_judgement,
+      });
+      setReviewForm((current) => ({ ...current, review_notes: '', decision: '', risk_judgement: '' }));
+      setNotice('Review saved.');
+      await fetchDetail();
     } catch (err) {
-      console.error('Error creating session:', err);
-      setError('Failed to create session. Please try again.');
+      setError(err.response?.data?.detail || err.response?.data?.error || 'Unable to save review');
     } finally {
-      setCreatingSession(false);
+      setSaving(false);
     }
   };
 
-  /**
-   * HANDLE: Download student report as PDF
-   */
-  const handleDownloadReport = () => {
-    alert('Report download feature coming soon!');
+  const handleUpdateReviewStatus = async (reviewId, statusValue) => {
+    try {
+      setSaving(true);
+      await counselorService.updateReview(reviewId, { status: statusValue });
+      setNotice('Review status updated.');
+      await fetchDetail();
+    } catch (err) {
+      setError(err.response?.data?.detail || err.response?.data?.error || 'Unable to update review');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // RENDER: Loading state
+  const handleCreateNote = async () => {
+    try {
+      setSaving(true);
+      setNotice('');
+      await counselorService.createNote({
+        student_id: Number(userId),
+        note_text: noteForm.note_text,
+        note_type: noteForm.note_type,
+      });
+      setNoteForm({ note_text: '', note_type: 'clinical' });
+      setNotice('Note saved.');
+      await fetchDetail();
+    } catch (err) {
+      setError(err.response?.data?.detail || err.response?.data?.error || 'Unable to save note');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleArchiveNote = async (noteId) => {
+    try {
+      setSaving(true);
+      await counselorService.updateNote(noteId, { active: false });
+      setNotice('Note archived without deletion.');
+      await fetchDetail();
+    } catch (err) {
+      setError(err.response?.data?.detail || err.response?.data?.error || 'Unable to update note');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
-        <CircularProgress size={60} />
+      <Box sx={{ minHeight: '70vh', display: 'grid', placeItems: 'center' }}>
+        <CircularProgress />
       </Box>
     );
   }
 
-  // RENDER: Error state
-  if (error) {
+  if (!detail) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/counselor')}
-          sx={{ mb: 2 }}
-        >
-          Back to Dashboard
-        </Button>
-        <Alert severity="error">{error}</Alert>
+      <Container maxWidth="lg" sx={{ py: 3 }}>
+        <Alert severity="error">{error || 'Student detail is unavailable.'}</Alert>
       </Container>
     );
   }
 
-  if (!student) {
-    return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Alert severity="error">Student not found</Alert>
-      </Container>
-    );
-  }
-
-  // Safe destructuring with defaults
-  const {
-    user = {},
-    latest_assessment = {},
-    today_checkin = {},
-    recent_checkins = [],
-    profile_data = {},
-    dass21_scores = {},
-    critical_alerts = [],
-    sessions_history = []
-  } = student || {};
+  const student = detail.student || detail.user || {};
+  const latest = detail.latest_assessment || {};
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      {/* HEADER / BACK BUTTON */}
-      <Button
-        startIcon={<ArrowBackIcon />}
-        onClick={() => navigate('/counselor')}
-        sx={{ mb: 3 }}
-      >
-        Back to Dashboard
-      </Button>
-
-      {/* STUDENT PROFILE CARD */}
-      <Paper sx={{ p: 3, mb: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
-        <Grid container spacing={3} alignItems="center">
-          {/* Avatar */}
-          <Grid item>
-            <Avatar
-              sx={{
-                width: 100,
-                height: 100,
-                background: 'rgba(255,255,255,0.3)',
-                fontSize: '3rem',
-              }}
-            >
-              {user?.full_name?.charAt(0).toUpperCase()}
-            </Avatar>
-          </Grid>
-
-          {/* Student Info */}
-          <Grid item xs>
-            <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-              {user?.full_name}
+    <Container maxWidth="xl" sx={{ py: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 3 }}>
+        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+          <Tooltip title="Back">
+            <IconButton onClick={() => navigate('/counselor/students')}>
+              <ArrowBackIcon />
+            </IconButton>
+          </Tooltip>
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 700 }}>
+              {student.full_name || student.name}
             </Typography>
-            <Grid container spacing={3}>
-              <Grid item xs={12} sm={6} md={3}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <EmailIcon />
-                  <Typography variant="body2">{user?.email}</Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <PhoneIcon />
-                  <Typography variant="body2">{user?.phone || 'N/A'}</Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <SchoolIcon />
-                  <Typography variant="body2">{profile_data?.academic_year || 'N/A'}</Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Chip
-                  label={latest_assessment?.risk_level || 'UNKNOWN'}
-                  color={
-                    latest_assessment?.risk_level === 'CRITICAL'
-                      ? 'error'
-                      : latest_assessment?.risk_level === 'HIGH'
-                      ? 'warning'
-                      : 'success'
-                  }
-                  sx={{ color: 'white' }}
-                />
-              </Grid>
-            </Grid>
-          </Grid>
+            <Typography variant="body2" color="text.secondary">
+              {student.email} {student.department ? `- ${student.department}` : ''}
+            </Typography>
+          </Box>
+        </Box>
+        <Stack direction="row" spacing={1}>
+          <Button startIcon={<RefreshIcon />} variant="outlined" onClick={fetchDetail}>
+            Refresh
+          </Button>
+          <Button startIcon={<DownloadIcon />} variant="outlined" onClick={() => counselorService.downloadStudentReport(userId, 'csv')}>
+            CSV
+          </Button>
+          <Button startIcon={<DownloadIcon />} variant="contained" onClick={() => counselorService.downloadStudentReport(userId, 'pdf')}>
+            PDF
+          </Button>
+        </Stack>
+      </Box>
 
-          {/* Action Buttons */}
-          <Grid item>
-            <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
-              <Button
-                variant="contained"
-                sx={{ background: 'white', color: '#667eea', fontWeight: 'bold' }}
-                onClick={() => setOpenSessionDialog(true)}
-              >
-                Start Session
-              </Button>
-              <Button
-                variant="outlined"
-                sx={{ borderColor: 'white', color: 'white' }}
-                startIcon={<DownloadIcon />}
-                onClick={handleDownloadReport}
-              >
-                Report
-              </Button>
-            </Box>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* CRITICAL ALERTS */}
-      {critical_alerts && critical_alerts.length > 0 && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          <strong>⚠️ Critical Alerts:</strong>
-          {critical_alerts.map((alert, idx) => (
-            <div key={idx}>- {alert.message}</div>
-          ))}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
         </Alert>
       )}
+      {notice && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>
+          {notice}
+        </Alert>
+      )}
+      <Alert severity="info" sx={{ mb: 3 }}>
+        {detail.model_disclaimer}
+      </Alert>
 
-      {/* TABS NAVIGATION */}
-      <Paper sx={{ mb: 3 }}>
-        <Tabs
-          value={tabValue}
-          onChange={(e, newValue) => setTabValue(newValue)}
-          sx={{ borderBottom: '1px solid #ddd' }}
-        >
-          <Tab label="✓ Overview" />
-          <Tab label="📊 Assessments" />
-          <Tab label="📝 Check-ins" />
-          <Tab label="🎓 Profile" />
-          <Tab label="📋 Sessions" />
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        {[
+          ['Model Risk', latest.risk_level || latest.model_risk_level || 'UNKNOWN'],
+          ['Fusion Score', valueOrNA(latest.final_score ?? latest.model_score)],
+          ['Evidence Coverage', valueOrNA(latest.evidence_coverage)],
+          ['Coverage Category', latest.coverage_category || 'N/A'],
+          ['Open Reviews', detail.reviews?.filter((review) => review.status !== 'CLOSED').length || 0],
+        ].map(([label, value]) => (
+          <Grid item xs={12} sm={6} md={2.4} key={label}>
+            <Card sx={{ borderRadius: 2, height: '100%' }}>
+              <CardContent>
+                <Typography variant="body2" color="text.secondary">
+                  {label}
+                </Typography>
+                <Typography variant="h6" sx={{ mt: 1, fontWeight: 700 }}>
+                  {value}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+
+      <Paper sx={{ borderRadius: 2, p: 2 }}>
+        <Tabs value={tab} onChange={(event, nextTab) => setTab(nextTab)} variant="scrollable" allowScrollButtonsMobile>
+          <Tab label="Summary" />
+          <Tab label="Assessments" />
+          <Tab label="Modality Evidence" />
+          <Tab label="Trends" />
+          <Tab label="Notes" />
+          <Tab label="Actions" />
         </Tabs>
-      </Paper>
 
-      {/* TAB 1: OVERVIEW */}
-      <TabPanel value={tabValue} index={0}>
-        <Grid container spacing={3}>
-          {/* Risk Assessment Card */}
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardHeader title="📊 Current Risk Assessment" />
-              <CardContent>
-                {latest_assessment ? (
-                  <Box>
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="body2" sx={{ color: '#666' }}>
-                        Risk Level
-                      </Typography>
-                      <Chip
-                        label={latest_assessment.risk_level}
-                        color={
-                          latest_assessment.risk_level === 'CRITICAL'
-                            ? 'error'
-                            : latest_assessment.risk_level === 'HIGH'
-                            ? 'warning'
-                            : 'success'
-                        }
-                        sx={{ mt: 1 }}
-                      />
-                    </Box>
-
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="body2" sx={{ color: '#666' }}>
-                        Composite Score
-                      </Typography>
-                      <Typography variant="h5" sx={{ fontWeight: 'bold', mt: 1 }}>
-                        {latest_assessment.composite_score?.toFixed(2) || 'N/A'}
-                      </Typography>
-                      <LinearProgress
-                        variant="determinate"
-                        value={Math.min((latest_assessment.composite_score || 0) / 100 * 100, 100)}
-                        sx={{ mt: 1 }}
-                      />
-                    </Box>
-
-                    <Box>
-                      <Typography variant="body2" sx={{ color: '#666', mb: 1 }}>
-                        Recommendations:
-                      </Typography>
-                      <Typography variant="body2">
-                        {latest_assessment.recommendations || 'No specific recommendations at this time.'}
-                      </Typography>
-                    </Box>
-
-                    <Typography variant="caption" sx={{ color: '#999', mt: 2, display: 'block' }}>
-                      Last Updated: {new Date(latest_assessment.created_at).toLocaleString()}
-                    </Typography>
-                  </Box>
-                ) : (
-                  <Typography sx={{ color: '#999' }}>No assessment data available</Typography>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Today's Check-in Card */}
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardHeader title="📱 Today's Check-in" />
-              <CardContent>
-                {today_checkin ? (
-                  <Box>
-                    <Grid container spacing={2}>
-                      <Grid item xs={6}>
-                        <Box>
-                          <Typography variant="body2" sx={{ color: '#666' }}>
-                            Mood
-                          </Typography>
-                          <Typography variant="h6" sx={{ fontWeight: 'bold', mt: 1 }}>
-                            {today_checkin.mood || 'Not recorded'}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Box>
-                          <Typography variant="body2" sx={{ color: '#666' }}>
-                            Stress Level
-                          </Typography>
-                          <Typography variant="h6" sx={{ fontWeight: 'bold', mt: 1 }}>
-                            {today_checkin.stress_level}/10
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Box>
-                          <Typography variant="body2" sx={{ color: '#666' }}>
-                            Anxiety Level
-                          </Typography>
-                          <Typography variant="h6" sx={{ fontWeight: 'bold', mt: 1 }}>
-                            {today_checkin.anxiety_level}/10
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Box>
-                          <Typography variant="body2" sx={{ color: '#666' }}>
-                            Sleep Quality
-                          </Typography>
-                          <Typography variant="h6" sx={{ fontWeight: 'bold', mt: 1 }}>
-                            {today_checkin.sleep_quality}/10
-                          </Typography>
-                        </Box>
-                      </Grid>
-                    </Grid>
-                    <Typography variant="caption" sx={{ color: '#999', mt: 2, display: 'block' }}>
-                      Recorded: {new Date(today_checkin.checkin_date).toLocaleString()}
-                    </Typography>
-                  </Box>
-                ) : (
-                  <Typography sx={{ color: '#999' }}>No check-in recorded today</Typography>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-      </TabPanel>
-
-      {/* TAB 2: ASSESSMENTS */}
-      <TabPanel value={tabValue} index={1}>
-        <Card>
-          <CardHeader title="🧠 DASS21 Assessment Scores" />
-          <CardContent>
-            {dass21_scores ? (
-              <Grid container spacing={3}>
-                {/* Depression */}
-                <Grid item xs={12} md={4}>
-                  <Box sx={{ p: 2, background: '#f5f5f5', borderRadius: 1 }}>
-                    <Typography variant="subtitle2" sx={{ color: '#666' }}>
-                      Depression
-                    </Typography>
-                    <Typography variant="h4" sx={{ fontWeight: 'bold', mt: 1, color: '#d32f2f' }}>
-                      {dass21_scores.depression_score}
-                    </Typography>
-                    <Chip
-                      label={dass21_scores.depression_severity}
-                      color="error"
-                      size="small"
-                      sx={{ mt: 1 }}
-                    />
-                    <Typography variant="caption" sx={{ display: 'block', mt: 1, color: '#999' }}>
-                      Severity: {dass21_scores.depression_severity}
-                    </Typography>
-                  </Box>
-                </Grid>
-
-                {/* Anxiety */}
-                <Grid item xs={12} md={4}>
-                  <Box sx={{ p: 2, background: '#f5f5f5', borderRadius: 1 }}>
-                    <Typography variant="subtitle2" sx={{ color: '#666' }}>
-                      Anxiety
-                    </Typography>
-                    <Typography variant="h4" sx={{ fontWeight: 'bold', mt: 1, color: '#f57c00' }}>
-                      {dass21_scores.anxiety_score}
-                    </Typography>
-                    <Chip
-                      label={dass21_scores.anxiety_severity}
-                      color="warning"
-                      size="small"
-                      sx={{ mt: 1 }}
-                    />
-                    <Typography variant="caption" sx={{ display: 'block', mt: 1, color: '#999' }}>
-                      Severity: {dass21_scores.anxiety_severity}
-                    </Typography>
-                  </Box>
-                </Grid>
-
-                {/* Stress */}
-                <Grid item xs={12} md={4}>
-                  <Box sx={{ p: 2, background: '#f5f5f5', borderRadius: 1 }}>
-                    <Typography variant="subtitle2" sx={{ color: '#666' }}>
-                      Stress
-                    </Typography>
-                    <Typography variant="h4" sx={{ fontWeight: 'bold', mt: 1, color: '#388e3c' }}>
-                      {dass21_scores.stress_score}
-                    </Typography>
-                    <Chip
-                      label={dass21_scores.stress_severity}
-                      color="success"
-                      size="small"
-                      sx={{ mt: 1 }}
-                    />
-                    <Typography variant="caption" sx={{ display: 'block', mt: 1, color: '#999' }}>
-                      Severity: {dass21_scores.stress_severity}
-                    </Typography>
-                  </Box>
-                </Grid>
-              </Grid>
-            ) : (
-              <Typography sx={{ color: '#999' }}>No DASS21 assessment available</Typography>
-            )}
-          </CardContent>
-        </Card>
-      </TabPanel>
-
-      {/* TAB 3: CHECK-INS HISTORY */}
-      <TabPanel value={tabValue} index={2}>
-        <Card>
-          <CardHeader title="📊 Check-in History (Last 7 Days)" />
-          <CardContent>
-            {recent_checkins && recent_checkins.length > 0 ? (
-              <TableContainer>
-                <Table>
-                  <TableHead sx={{ backgroundColor: '#f5f5f5' }}>
-                    <TableRow>
-                      <TableCell>
-                        <strong>Date</strong>
-                      </TableCell>
-                      <TableCell>
-                        <strong>Mood</strong>
-                      </TableCell>
-                      <TableCell>
-                        <strong>Stress</strong>
-                      </TableCell>
-                      <TableCell>
-                        <strong>Anxiety</strong>
-                      </TableCell>
-                      <TableCell>
-                        <strong>Sleep</strong>
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
+        <TabPanel value={tab} index={0}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                Student Summary
+              </Typography>
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
                   <TableBody>
-                    {recent_checkins.map((checkin, idx) => (
-                      <TableRow key={idx} sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
-                        <TableCell>{new Date(checkin.checkin_date).toLocaleDateString()}</TableCell>
-                        <TableCell>{checkin.mood}</TableCell>
-                        <TableCell>{checkin.stress_level}/10</TableCell>
-                        <TableCell>{checkin.anxiety_level}/10</TableCell>
-                        <TableCell>{checkin.sleep_quality}/10</TableCell>
+                    {[
+                      ['Name', student.full_name || student.name],
+                      ['Email', student.email],
+                      ['Department', student.department || 'N/A'],
+                      ['Year', student.year_of_study || 'N/A'],
+                      ['Assigned Date', formatDateTime(detail.assignment?.assigned_date)],
+                      ['Assignment Reason', detail.assignment?.assignment_reason || 'N/A'],
+                    ].map(([label, value]) => (
+                      <TableRow key={label}>
+                        <TableCell sx={{ fontWeight: 700 }}>{label}</TableCell>
+                        <TableCell>{value}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </TableContainer>
-            ) : (
-              <Typography sx={{ color: '#999' }}>No check-in history available</Typography>
-            )}
-          </CardContent>
-        </Card>
-      </TabPanel>
-
-      {/* TAB 4: PROFILE DATA */}
-      <TabPanel value={tabValue} index={3}>
-        <Grid container spacing={3}>
-          {profile_data ? (
-            <>
-              {/* Academic Profile */}
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardHeader title="🎓 Academic Profile" />
-                  <CardContent>
-                    <List dense>
-                      <ListItem>
-                        <ListItemText
-                          primary="Faculty"
-                          secondary={profile_data.faculty || 'Not provided'}
-                        />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemText
-                          primary="Academic Year"
-                          secondary={profile_data.academic_year || 'Not provided'}
-                        />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemText
-                          primary="GPA"
-                          secondary={profile_data.gpa || 'Not provided'}
-                        />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemText
-                          primary="Academic Stress"
-                          secondary={profile_data.academic_stress_level || 'Not provided'}
-                        />
-                      </ListItem>
-                    </List>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              {/* Family & Social Profile */}
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardHeader title="👨‍👩‍👧‍👦 Family & Social" />
-                  <CardContent>
-                    <List dense>
-                      <ListItem>
-                        <ListItemText
-                          primary="Family Support"
-                          secondary={profile_data.family_support_level || 'Not provided'}
-                        />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemText
-                          primary="Social Connection"
-                          secondary={profile_data.social_connection_level || 'Not provided'}
-                        />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemText
-                          primary="Life Events"
-                          secondary={profile_data.recent_life_events || 'None reported'}
-                        />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemText
-                          primary="Substance Use"
-                          secondary={profile_data.substance_use_indication || 'Not indicated'}
-                        />
-                      </ListItem>
-                    </List>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </>
-          ) : (
-            <Grid item xs={12}>
-              <Typography sx={{ color: '#999' }}>No profile data available</Typography>
             </Grid>
-          )}
-        </Grid>
-      </TabPanel>
+            <Grid item xs={12} md={6}>
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                Recent Timeline
+              </Typography>
+              <Stack spacing={1}>
+                {timeline.slice(0, 6).map((event) => (
+                  <Paper key={`${event.type}-${event.timestamp}-${event.label}`} variant="outlined" sx={{ p: 1.5 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                      {event.label}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {formatDateTime(event.timestamp)}
+                    </Typography>
+                  </Paper>
+                ))}
+                {timeline.length === 0 && <Typography color="text.secondary">No timeline events yet.</Typography>}
+              </Stack>
+            </Grid>
+          </Grid>
+        </TabPanel>
 
-      {/* TAB 5: SESSION HISTORY */}
-      <TabPanel value={tabValue} index={4}>
-        <Card>
-          <CardHeader title="📋 Counselor Session History" />
-          <CardContent>
-            {sessions_history && sessions_history.length > 0 ? (
-              <TableContainer>
-                <Table>
-                  <TableHead sx={{ backgroundColor: '#f5f5f5' }}>
-                    <TableRow>
-                      <TableCell>
-                        <strong>Date</strong>
-                      </TableCell>
-                      <TableCell>
-                        <strong>Type</strong>
-                      </TableCell>
-                      <TableCell>
-                        <strong>Status</strong>
-                      </TableCell>
-                      <TableCell>
-                        <strong>Outcome</strong>
-                      </TableCell>
-                      <TableCell>
-                        <strong>Follow-up</strong>
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {sessions_history.map((session, idx) => (
-                      <TableRow key={idx} sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
-                        <TableCell>{new Date(session.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          <Chip label={session.session_type} size="small" variant="outlined" />
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={session.status}
-                            color={session.status === 'completed' ? 'success' : 'default'}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>{session.outcome || 'N/A'}</TableCell>
-                        <TableCell>
-                          {session.follow_up_needed ? (
-                            <Chip
-                              label={`${new Date(session.follow_up_date).toLocaleDateString()}`}
-                              color="warning"
-                              size="small"
-                            />
-                          ) : (
-                            'None'
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            ) : (
-              <Typography sx={{ color: '#999' }}>No session history available</Typography>
-            )}
-          </CardContent>
-        </Card>
-      </TabPanel>
-
-      {/* START SESSION DIALOG */}
-      <Dialog open={openSessionDialog} onClose={() => setOpenSessionDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Start New Counselor Session</DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
-          <TextField
-            fullWidth
-            label="Session Notes"
-            multiline
-            rows={5}
-            value={sessionNotes}
-            onChange={(e) => setSessionNotes(e.target.value)}
-            placeholder="Document your initial observations, concerns, and session plan..."
-            variant="outlined"
-          />
-          <Typography variant="caption" sx={{ color: '#999', mt: 2, display: 'block' }}>
-            Student: {user?.full_name} | Current Risk: {latest_assessment?.risk_level}
+        <TabPanel value={tab} index={1}>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Risk</TableCell>
+                  <TableCell>Fusion</TableCell>
+                  <TableCell>Model Score</TableCell>
+                  <TableCell>Evidence</TableCell>
+                  <TableCell>Screening Only</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {detail.assessments?.map((assessment) => (
+                  <TableRow key={assessment.id}>
+                    <TableCell>{formatDateTime(assessment.created_at)}</TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={assessment.risk_level || assessment.model_risk_level || 'UNKNOWN'}
+                        color={riskColors[assessment.risk_level || assessment.model_risk_level] || 'default'}
+                      />
+                    </TableCell>
+                    <TableCell>{valueOrNA(assessment.final_score)}</TableCell>
+                    <TableCell>{valueOrNA(assessment.model_score)}</TableCell>
+                    <TableCell>{valueOrNA(assessment.evidence_coverage)}</TableCell>
+                    <TableCell>{assessment.screening_only ? 'Yes' : 'No'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            DASS-21 History
           </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenSessionDialog(false)}>Cancel</Button>
-          <Button
-            onClick={handleCreateSession}
-            variant="contained"
-            disabled={creatingSession}
-            startIcon={<SaveIcon />}
-          >
-            {creatingSession ? 'Creating...' : 'Create Session'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Depression</TableCell>
+                  <TableCell>Anxiety</TableCell>
+                  <TableCell>Stress</TableCell>
+                  <TableCell>Total</TableCell>
+                  <TableCell>Complete</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {detail.dass21_assessments?.map((assessment) => (
+                  <TableRow key={assessment.id}>
+                    <TableCell>{formatDateTime(assessment.created_at)}</TableCell>
+                    <TableCell>{assessment.depression_score}</TableCell>
+                    <TableCell>{assessment.anxiety_score}</TableCell>
+                    <TableCell>{assessment.stress_score}</TableCell>
+                    <TableCell>{assessment.total_dass21_score}</TableCell>
+                    <TableCell>{assessment.is_complete ? 'Yes' : 'No'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </TabPanel>
+
+        <TabPanel value={tab} index={2}>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Generated</TableCell>
+                  <TableCell>Modality</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Score</TableCell>
+                  <TableCell>Probability</TableCell>
+                  <TableCell>Confidence</TableCell>
+                  <TableCell>Boundary</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {detail.modality_evidence?.map((evidence) => (
+                  <TableRow key={evidence.id}>
+                    <TableCell>{formatDateTime(evidence.generated_at)}</TableCell>
+                    <TableCell>{evidence.modality}</TableCell>
+                    <TableCell>{evidence.status}</TableCell>
+                    <TableCell>{valueOrNA(evidence.score_0_100)}</TableCell>
+                    <TableCell>{valueOrNA(evidence.probability)}</TableCell>
+                    <TableCell>{valueOrNA(evidence.confidence)}</TableCell>
+                    <TableCell>{evidence.clinical_use_boundary}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </TabPanel>
+
+        <TabPanel value={tab} index={3}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} lg={8}>
+              <Paper variant="outlined" sx={{ p: 2, height: 360 }}>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  Mood, Stress, and Fusion
+                </Typography>
+                <ResponsiveContainer width="100%" height="82%">
+                  <LineChart data={trendData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <ChartTooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="mood" stroke="#1976d2" strokeWidth={2} />
+                    <Line type="monotone" dataKey="stress" stroke="#ed6c02" strokeWidth={2} />
+                    <Line type="monotone" dataKey="fusion" stroke="#7b1fa2" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} lg={4}>
+              <Paper variant="outlined" sx={{ p: 2, height: 360 }}>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  Assessment Completion
+                </Typography>
+                <ResponsiveContainer width="100%" height="82%">
+                  <BarChart data={completionData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis allowDecimals={false} />
+                    <ChartTooltip />
+                    <Bar dataKey="value" fill="#1976d2" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Paper>
+            </Grid>
+          </Grid>
+        </TabPanel>
+
+        <TabPanel value={tab} index={4}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={5}>
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                New Counselor Note
+              </Typography>
+              <Stack spacing={2}>
+                <FormControl size="small">
+                  <InputLabel>Type</InputLabel>
+                  <Select
+                    label="Type"
+                    value={noteForm.note_type}
+                    onChange={(event) => setNoteForm((current) => ({ ...current, note_type: event.target.value }))}
+                  >
+                    <MenuItem value="clinical">Clinical</MenuItem>
+                    <MenuItem value="follow_up">Follow-Up</MenuItem>
+                    <MenuItem value="referral">Referral</MenuItem>
+                    <MenuItem value="administrative">Administrative</MenuItem>
+                  </Select>
+                </FormControl>
+                <TextField
+                  label="Note"
+                  value={noteForm.note_text}
+                  minRows={5}
+                  multiline
+                  onChange={(event) => setNoteForm((current) => ({ ...current, note_text: event.target.value }))}
+                />
+                <Button
+                  startIcon={<NoteAddIcon />}
+                  variant="contained"
+                  disabled={saving || !noteForm.note_text.trim()}
+                  onClick={handleCreateNote}
+                >
+                  Save Note
+                </Button>
+              </Stack>
+            </Grid>
+            <Grid item xs={12} md={7}>
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                Note History
+              </Typography>
+              <Stack spacing={1}>
+                {detail.notes?.map((note) => (
+                  <Paper key={note.id} variant="outlined" sx={{ p: 1.5 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                          {note.note_type} {note.active ? '' : '(archived)'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {formatDateTime(note.updated_at)}
+                        </Typography>
+                      </Box>
+                      {note.active && (
+                        <Button size="small" onClick={() => handleArchiveNote(note.id)}>
+                          Archive
+                        </Button>
+                      )}
+                    </Box>
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      {note.note_text}
+                    </Typography>
+                  </Paper>
+                ))}
+                {detail.notes?.length === 0 && <Typography color="text.secondary">No counselor notes yet.</Typography>}
+              </Stack>
+            </Grid>
+          </Grid>
+        </TabPanel>
+
+        <TabPanel value={tab} index={5}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={5}>
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                Human Review
+              </Typography>
+              <Stack spacing={2}>
+                <FormControl size="small">
+                  <InputLabel>Assessment</InputLabel>
+                  <Select
+                    label="Assessment"
+                    value={reviewForm.assessment_id}
+                    onChange={(event) => setReviewForm((current) => ({ ...current, assessment_id: event.target.value }))}
+                  >
+                    <MenuItem value="">No linked assessment</MenuItem>
+                    {detail.assessments?.map((assessment) => (
+                      <MenuItem value={assessment.id} key={assessment.id}>
+                        {formatDateTime(assessment.created_at)} - {assessment.risk_level || assessment.model_risk_level || 'UNKNOWN'}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl size="small">
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    label="Status"
+                    value={reviewForm.status}
+                    onChange={(event) => setReviewForm((current) => ({ ...current, status: event.target.value }))}
+                  >
+                    {reviewStatuses.map((statusValue) => (
+                      <MenuItem value={statusValue} key={statusValue}>
+                        {statusValue}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <TextField
+                  label="Review Notes"
+                  value={reviewForm.review_notes}
+                  multiline
+                  minRows={3}
+                  onChange={(event) => setReviewForm((current) => ({ ...current, review_notes: event.target.value }))}
+                />
+                <TextField
+                  label="Decision"
+                  value={reviewForm.decision}
+                  onChange={(event) => setReviewForm((current) => ({ ...current, decision: event.target.value }))}
+                />
+                <TextField
+                  label="Risk Judgement"
+                  value={reviewForm.risk_judgement}
+                  onChange={(event) => setReviewForm((current) => ({ ...current, risk_judgement: event.target.value }))}
+                />
+                <Button startIcon={<SaveIcon />} variant="contained" disabled={saving} onClick={handleCreateReview}>
+                  Save Review
+                </Button>
+              </Stack>
+            </Grid>
+            <Grid item xs={12} md={7}>
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                Review History
+              </Typography>
+              <Stack spacing={1}>
+                {detail.reviews?.map((review) => (
+                  <Paper key={review.id} variant="outlined" sx={{ p: 1.5 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+                      <Box>
+                        <Chip size="small" label={review.status} />
+                        <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                          {formatDateTime(review.updated_at)}
+                        </Typography>
+                      </Box>
+                      <FormControl size="small" sx={{ minWidth: 190 }}>
+                        <InputLabel>Status</InputLabel>
+                        <Select
+                          label="Status"
+                          value={review.status}
+                          onChange={(event) => handleUpdateReviewStatus(review.id, event.target.value)}
+                        >
+                          {reviewStatuses.map((statusValue) => (
+                            <MenuItem value={statusValue} key={statusValue}>
+                              {statusValue}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Box>
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      {review.review_notes || 'No notes recorded.'}
+                    </Typography>
+                    {review.decision && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        Decision: {review.decision}
+                      </Typography>
+                    )}
+                    {review.risk_judgement && (
+                      <Typography variant="body2" color="text.secondary">
+                        Human judgement: {review.risk_judgement}
+                      </Typography>
+                    )}
+                  </Paper>
+                ))}
+                {detail.reviews?.length === 0 && <Typography color="text.secondary">No human reviews yet.</Typography>}
+              </Stack>
+            </Grid>
+          </Grid>
+        </TabPanel>
+      </Paper>
     </Container>
   );
 };

@@ -1,484 +1,262 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Box,
+  Button,
+  Chip,
+  CircularProgress,
   Container,
-  Typography,
+  FormControl,
+  IconButton,
+  InputAdornment,
+  InputLabel,
+  MenuItem,
   Paper,
-  Grid,
-  Card,
-  CardContent,
+  Select,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
-  TableRow,
   TablePagination,
-  Chip,
+  TableRow,
   TextField,
-  InputAdornment,
   Tooltip,
-  IconButton,
-  CircularProgress,
-  Alert,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Avatar,
+  Typography,
 } from '@mui/material';
 import {
-  Search as SearchIcon,
-  Visibility as VisibilityIcon,
-  Chat as ChatIcon,
-  Assessment as AssessmentIcon,
-  TrendingUp as TrendingUpIcon,
   Download as DownloadIcon,
   Refresh as RefreshIcon,
+  Search as SearchIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import counselorService from '../../services/counselorService';
+
+const riskColors = {
+  LOW: 'success',
+  MEDIUM: 'warning',
+  HIGH: 'error',
+  SEVERE: 'secondary',
+};
+
+const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : 'N/A');
 
 const AllStudentsView = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-
-  // State management
   const [students, setStudents] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
   const [riskFilter, setRiskFilter] = useState('ALL');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
-  const [statsData, setStatsData] = useState(null);
 
-  // Fetch all students on mount
-  useEffect(() => {
-    fetchAllStudents();
-  }, []);
-
-  const fetchAllStudents = async () => {
+  const fetchStudents = async () => {
     try {
       setLoading(true);
-      setError(null);
-
-      // Fetch all students and analytics
-      const [studentsData, analyticsData] = await Promise.all([
-        counselorService.getAllStudents({ limit: 1000 }),
-        counselorService.getAnalyticsSummary({ days: 30 }),
-      ]);
-
-      setStudents(studentsData.students || []);
-      setStatsData(analyticsData);
+      setError('');
+      const data = await counselorService.getAllStudents({ limit: 200 });
+      setStudents(data.students || []);
     } catch (err) {
-      console.error('Error fetching students:', err);
-      setError(err.response?.data?.detail || 'Failed to load students');
+      setError(err.response?.data?.detail || err.response?.data?.error || 'Unable to load students');
     } finally {
       setLoading(false);
     }
   };
 
-  // Filter and search students
-  const filteredStudents = students.filter(student => {
-    const matchesSearch = 
-      student.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.id?.toString().includes(searchTerm);
-    const matchesRisk = riskFilter === 'ALL' || student.risk_level === riskFilter;
-    return matchesSearch && matchesRisk;
-  });
+  useEffect(() => {
+    fetchStudents();
+  }, []);
 
-  // Pagination
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
+  const filteredStudents = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return students.filter((student) => {
+      const matchesRisk = riskFilter === 'ALL' || student.risk_level === riskFilter;
+      const matchesSearch =
+        !needle ||
+        [student.full_name, student.email, student.department, student.year_of_study?.toString()]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(needle));
+      return matchesRisk && matchesSearch;
+    });
+  }, [riskFilter, search, students]);
 
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
+  const pageRows = filteredStudents.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-  // Get risk level color
-  const getRiskLevelColor = (riskLevel) => {
-    const colors = {
-      'LOW': '#4CAF50',
-      'MEDIUM': '#FF9800',
-      'HIGH': '#F44336',
-      'SEVERE': '#9C27B0',
-    };
-    return colors[riskLevel] || '#757575';
-  };
-
-  // Format date
-  const formatDate = (date) => {
-    if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString();
-  };
-
-  // Export to CSV
-  const handleExportCSV = () => {
-    const headers = ['ID', 'Name', 'Email', 'Risk Level', 'Avg DASS21', 'Department', 'Last Assessment'];
-    const rows = filteredStudents.map(s => [
-      s.id,
-      s.full_name,
-      s.email,
-      s.risk_level || 'N/A',
-      s.avg_dass21_score || 'N/A',
-      s.department || 'N/A',
-      formatDate(s.last_assessment),
+  const exportCsv = () => {
+    const header = ['Name', 'Email', 'Risk', 'Fusion', 'DASS21', 'Last Check-In', 'Open Reviews'];
+    const rows = filteredStudents.map((student) => [
+      student.full_name,
+      student.email,
+      student.risk_level || 'UNKNOWN',
+      student.fusion_score ?? '',
+      student.avg_dass21_score ?? '',
+      formatDate(student.last_checkin),
+      student.open_reviews ?? 0,
     ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const csv = [header, ...rows].map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `students_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `assigned_students_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    window.URL.revokeObjectURL(url);
   };
 
-  const paginatedStudents = filteredStudents.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
+  if (loading) {
+    return (
+      <Box sx={{ minHeight: '70vh', display: 'grid', placeItems: 'center' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      {/* Header */}
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Box>
-            <Typography variant="h4" fontWeight="bold" gutterBottom>
-              All Students in System
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Total Students: {filteredStudents.length}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={fetchAllStudents}
-            >
-              Refresh
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<DownloadIcon />}
-              onClick={handleExportCSV}
-            >
-              Export CSV
-            </Button>
-          </Box>
+    <Container maxWidth="xl" sx={{ py: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 3 }}>
+        <Box>
+          <Typography variant="h4" sx={{ fontWeight: 700 }}>
+            Assigned Students
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Assignment-scoped student list with model output and human-review status kept separate.
+          </Typography>
         </Box>
-
-        {/* Quick Stats */}
-        {statsData && (
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card sx={{
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                color: 'white',
-              }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Box>
-                      <Typography color="rgba(255,255,255,0.7)" gutterBottom>
-                        Total Students
-                      </Typography>
-                      <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                        {statsData.total_students || 0}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card sx={{
-                background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-                color: 'white',
-              }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Box>
-                      <Typography color="rgba(255,255,255,0.7)" gutterBottom>
-                        At-Risk Students
-                      </Typography>
-                      <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                        {statsData.at_risk_students || 0}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card sx={{
-                background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                color: 'white',
-              }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Box>
-                      <Typography color="rgba(255,255,255,0.7)" gutterBottom>
-                        Risk %
-                      </Typography>
-                      <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                        {statsData.risk_percentage?.toFixed(1)}%
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card sx={{
-                background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-                color: 'white',
-              }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Box>
-                      <Typography color="rgba(255,255,255,0.7)" gutterBottom>
-                        Sessions
-                      </Typography>
-                      <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                        {statsData.sessions_completed || 0}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        )}
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button startIcon={<RefreshIcon />} variant="outlined" onClick={fetchStudents}>
+            Refresh
+          </Button>
+          <Button startIcon={<DownloadIcon />} variant="outlined" onClick={exportCsv}>
+            CSV
+          </Button>
+        </Box>
       </Box>
 
-      {/* Error Alert */}
       {error && (
-        <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 3 }}>
+        <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
 
-      {/* Search and Filter */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              placeholder="Search by name, email, or ID..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
+      <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <TextField
+            size="small"
+            label="Search students"
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(0);
+            }}
+            sx={{ minWidth: 280 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel>Risk</InputLabel>
+            <Select
+              label="Risk"
+              value={riskFilter}
+              onChange={(event) => {
+                setRiskFilter(event.target.value);
                 setPage(0);
               }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-              size="small"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Risk Level Filter</InputLabel>
-              <Select
-                value={riskFilter}
-                label="Risk Level Filter"
-                onChange={(e) => {
-                  setRiskFilter(e.target.value);
-                  setPage(0);
-                }}
-              >
-                <MenuItem value="ALL">All Risk Levels</MenuItem>
-                <MenuItem value="LOW">Low Risk</MenuItem>
-                <MenuItem value="MEDIUM">Medium Risk</MenuItem>
-                <MenuItem value="HIGH">High Risk</MenuItem>
-                <MenuItem value="SEVERE">Severe Risk</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
+            >
+              {['ALL', 'LOW', 'MEDIUM', 'HIGH', 'SEVERE'].map((risk) => (
+                <MenuItem value={risk} key={risk}>
+                  {risk}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
       </Paper>
 
-      {/* Students Table */}
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
-          <CircularProgress />
-        </Box>
-      ) : filteredStudents.length === 0 ? (
-        <Alert severity="info">No students found matching your criteria.</Alert>
-      ) : (
-        <Paper>
-          <TableContainer>
-            <Table>
-              <TableHead sx={{ backgroundColor: '#f5f5f5' }}>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold' }}>ID</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Email</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Risk Level</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Avg DASS21</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Department</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Last Assessment</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 'bold' }}>Actions</TableCell>
+      <Paper sx={{ borderRadius: 2 }}>
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Student</TableCell>
+                <TableCell>Department</TableCell>
+                <TableCell>Risk</TableCell>
+                <TableCell>Fusion</TableCell>
+                <TableCell>Evidence</TableCell>
+                <TableCell>DASS-21</TableCell>
+                <TableCell>Last Mood</TableCell>
+                <TableCell>Last Check-In</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {pageRows.map((student) => (
+                <TableRow hover key={student.id}>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                      {student.full_name || student.name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {student.email}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>{student.department || 'N/A'}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={student.risk_level || 'UNKNOWN'}
+                      color={riskColors[student.risk_level] || 'default'}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>{student.fusion_score ?? 'N/A'}</TableCell>
+                  <TableCell>{student.evidence_coverage ?? 'N/A'}</TableCell>
+                  <TableCell>{student.avg_dass21_score ?? 'N/A'}</TableCell>
+                  <TableCell>{student.last_mood ?? 'N/A'}</TableCell>
+                  <TableCell>{formatDate(student.last_checkin)}</TableCell>
+                  <TableCell align="right">
+                    <Tooltip title="Open student detail">
+                      <IconButton size="small" onClick={() => navigate(`/counselor/student/${student.id}`)}>
+                        <VisibilityIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Download PDF report">
+                      <IconButton size="small" onClick={() => counselorService.downloadStudentReport(student.id, 'pdf')}>
+                        <DownloadIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {paginatedStudents.map((student) => (
-                  <TableRow key={student.id} hover>
-                    <TableCell>#{student.id}</TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Avatar sx={{ width: 32, height: 32 }}>
-                          {student.full_name?.charAt(0).toUpperCase()}
-                        </Avatar>
-                        {student.full_name}
-                      </Box>
-                    </TableCell>
-                    <TableCell>{student.email}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={student.risk_level || 'N/A'}
-                        size="small"
-                        sx={{
-                          backgroundColor: getRiskLevelColor(student.risk_level),
-                          color: 'white',
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {student.avg_dass21_score ? `${student.avg_dass21_score.toFixed(1)}` : 'N/A'}
-                    </TableCell>
-                    <TableCell>{student.department || 'N/A'}</TableCell>
-                    <TableCell>
-                      {formatDate(student.last_assessment)}
-                    </TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="View Profile & Analysis">
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setSelectedStudent(student);
-                            setDetailsDialogOpen(true);
-                          }}
-                          color="primary"
-                        >
-                          <VisibilityIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="View Profile">
-                        <IconButton
-                          size="small"
-                          onClick={() => navigate(`/counselor/student/${student.id}/profile`)}
-                          color="primary"
-                        >
-                          <AssessmentIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Chat with Student">
-                        <IconButton
-                          size="small"
-                          onClick={() => navigate(`/counselor/chat?student=${student.id}`)}
-                          color="primary"
-                        >
-                          <ChatIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            rowsPerPageOptions={[10, 25, 50, 100]}
-            component="div"
-            count={filteredStudents.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-          />
-        </Paper>
-      )}
-
-      {/* Quick View Dialog */}
-      <Dialog
-        open={detailsDialogOpen}
-        onClose={() => setDetailsDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Student Quick View</DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
-          {selectedStudent && (
-            <Box>
-              <Typography variant="body2" gutterBottom>
-                <strong>ID:</strong> {selectedStudent.id}
-              </Typography>
-              <Typography variant="body2" gutterBottom>
-                <strong>Name:</strong> {selectedStudent.full_name}
-              </Typography>
-              <Typography variant="body2" gutterBottom>
-                <strong>Email:</strong> {selectedStudent.email}
-              </Typography>
-              <Typography variant="body2" gutterBottom>
-                <strong>Department:</strong> {selectedStudent.department || 'N/A'}
-              </Typography>
-              <Typography variant="body2" gutterBottom>
-                <strong>Risk Level:</strong>{' '}
-                <Chip
-                  label={selectedStudent.risk_level || 'N/A'}
-                  size="small"
-                  sx={{
-                    backgroundColor: getRiskLevelColor(selectedStudent.risk_level),
-                    color: 'white',
-                  }}
-                />
-              </Typography>
-              <Typography variant="body2" gutterBottom>
-                <strong>Avg DASS21:</strong> {selectedStudent.avg_dass21_score ? selectedStudent.avg_dass21_score.toFixed(1) : 'N/A'}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Last Assessment:</strong> {formatDate(selectedStudent.last_assessment)}
-              </Typography>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDetailsDialogOpen(false)}>Close</Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              navigate(`/counselor/student/${selectedStudent.id}/profile`);
-              setDetailsDialogOpen(false);
-            }}
-            startIcon={<VisibilityIcon />}
-          >
-            View Full Profile
-          </Button>
-        </DialogActions>
-      </Dialog>
+              ))}
+              {pageRows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9}>
+                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                      <Typography color="text.secondary">No students match the current filters.</Typography>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <TablePagination
+          component="div"
+          count={filteredStudents.length}
+          page={page}
+          rowsPerPage={rowsPerPage}
+          onPageChange={(event, nextPage) => setPage(nextPage)}
+          onRowsPerPageChange={(event) => {
+            setRowsPerPage(Number(event.target.value));
+            setPage(0);
+          }}
+        />
+      </Paper>
     </Container>
   );
 };

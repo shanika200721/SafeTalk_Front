@@ -9,7 +9,7 @@ import {
   SearchIcon,
   BuildingIcon,
 } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion as Motion } from 'framer-motion'
 
 const crisisHotlines = [
   {
@@ -102,7 +102,7 @@ const Resources = () => {
   const [searchQuery, setSearchQuery] = useState('')
 
   return (
-    <motion.div
+    <Motion.div
       initial={{
         opacity: 0,
       }}
@@ -265,7 +265,7 @@ const Resources = () => {
           </div>
         </section>
       </div>
-    </motion.div>
+    </Motion.div>
   )
 }
 

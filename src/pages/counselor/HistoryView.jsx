@@ -88,7 +88,6 @@ const HistoryView = () => {
   const { id } = useParams(); // For student-specific history
   const { user, logout } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [tabValue, setTabValue] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);

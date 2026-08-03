@@ -12,9 +12,7 @@ const studentService = {
    */
   getDashboard: async () => {
     try {
-      console.log('Fetching student dashboard...');
       const response = await api.get('/api/student/dashboard');
-      console.log('Student dashboard data:', response.data);
       return response.data;
     } catch (error) {
       console.error('Failed to fetch student dashboard:', error);
@@ -28,9 +26,7 @@ const studentService = {
    */
   getStats: async () => {
     try {
-      console.log('Fetching student stats...');
       const response = await api.get('/api/student/stats');
-      console.log('Student stats:', response.data);
       return response.data;
     } catch (error) {
       console.error('Failed to fetch student stats:', error);
@@ -44,9 +40,7 @@ const studentService = {
    */
   getResources: async () => {
     try {
-      console.log('Fetching student resources...');
       const response = await api.get('/api/student/resources');
-      console.log('Student resources:', response.data);
       return response.data;
     } catch (error) {
       console.error('Failed to fetch student resources:', error);
@@ -60,9 +54,7 @@ const studentService = {
    */
   getCounselors: async () => {
     try {
-      console.log('Fetching available counselors...');
       const response = await api.get('/api/student/counselors');
-      console.log('Available counselors:', response.data);
       return response.data;
     } catch (error) {
       console.error('Failed to fetch counselors:', error);
@@ -75,9 +67,7 @@ const studentService = {
    */
   submitDailyCheckin: async (checkinData) => {
     try {
-      console.log('Submitting daily check-in:', checkinData);
       const response = await api.post('/api/checkin/daily', checkinData);
-      console.log('Check-in submitted:', response.data);
       return response.data;
     } catch (error) {
       console.error('Failed to submit check-in:', error);
@@ -90,9 +80,7 @@ const studentService = {
    */
   submitProfileAssessment: async (assessmentData) => {
     try {
-      console.log('Submitting profile assessment:', assessmentData);
       const response = await api.post('/api/assessments/profile', assessmentData);
-      console.log('Profile assessment submitted:', response.data);
       return response.data;
     } catch (error) {
       console.error('Failed to submit profile assessment:', error);
@@ -100,14 +88,47 @@ const studentService = {
     }
   },
 
+  getProfileAssessmentQuestions: async () => {
+    const response = await api.get('/api/student/profile-assessment/questions');
+    return response.data;
+  },
+
+  getProfileAssessmentStatus: async () => {
+    const response = await api.get('/api/student/profile-assessment/status');
+    return response.data;
+  },
+
+  getCurrentProfileAssessment: async () => {
+    const response = await api.get('/api/student/profile-assessment/current');
+    return response.data;
+  },
+
+  saveProfileAssessmentDraft: async (payload) => {
+    const response = await api.post('/api/student/profile-assessment/draft', payload);
+    return response.data;
+  },
+
+  submitProfileAssessmentV2: async (payload) => {
+    const response = await api.post('/api/student/profile-assessment/submit', payload);
+    return response.data;
+  },
+
+  getProfileAssessmentSummary: async (assessmentId) => {
+    const response = await api.get(`/api/student/profile-assessment/${assessmentId}/summary`);
+    return response.data;
+  },
+
+  getFacialAnalysisStatus: async () => {
+    const response = await api.get('/api/student/facial-analysis/status');
+    return response.data;
+  },
+
   /**
    * Submit DASS21 assessment
    */
   submitDASS21: async (das21Data) => {
     try {
-      console.log('Submitting DASS21 assessment:', das21Data);
       const response = await api.post('/api/assessments/dass21', das21Data);
-      console.log('DASS21 assessment submitted:', response.data);
       return response.data;
     } catch (error) {
       console.error('Failed to submit DASS21:', error);

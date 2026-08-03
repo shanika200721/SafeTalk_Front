@@ -73,7 +73,7 @@ document.addEventListener('touchmove', (e) => {
   }
 }, { passive: false });
 
-document.addEventListener('touchend', (e) => {
+document.addEventListener('touchend', () => {
   lastX = 0;
   lastY = 0;
 }, { passive: true });
@@ -105,7 +105,7 @@ document.addEventListener('mousemove', (e) => {
   }
 }, true);
 
-document.addEventListener('mouseup', (e) => {
+document.addEventListener('mouseup', () => {
   isMouseDown = false;
   startX = 0;
   startY = 0;

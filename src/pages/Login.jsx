@@ -20,6 +20,14 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import Email from '@mui/icons-material/Email';
 import Lock from '@mui/icons-material/Lock';
 
+const COUNSELOR_ROLES = new Set(['counselor', 'psychiatrist']);
+
+const landingPathForRole = (role) => {
+  if (role === 'admin') return '/admin';
+  if (COUNSELOR_ROLES.has(role)) return '/counselor';
+  return '/dashboard';
+};
+
 const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -49,15 +57,11 @@ const Login = () => {
     try {
       const result = await login(formData.username, formData.password);
       if (result.success) {
-        if (result.user?.role === 'counselor') {
-          navigate('/counselor');
-        } else {
-          navigate('/dashboard');
-        }
+        navigate(landingPathForRole(result.user?.role));
       } else {
         setError(result.error || 'Invalid username or password');
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred');
     } finally {
       setLoading(false);

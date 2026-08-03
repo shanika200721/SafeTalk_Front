@@ -30,6 +30,7 @@ import { useNavigate } from 'react-router-dom';
 import { Sidebar } from '../components/layout/Sidebar';
 import { EmergencySOS } from '../components/common/EmergencySOS';
 import api from '../services/api';
+import { getModalityAvailability } from '../services/modalityService';
 
 const questions = [
   'I found myself getting upset by quite trivial things.',
@@ -73,6 +74,7 @@ const DASS21Assessment = () => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
+  const [modalityAvailability, setModalityAvailability] = useState([]);
 
   useEffect(() => {
     const loadAssessments = async () => {
@@ -85,7 +87,6 @@ const DASS21Assessment = () => {
           setResponses(today.responses);
           setEditingId(today.id);
           setResult(today);
-          console.log("Loaded today's DASS21 assessment for editing");
         } catch (err) {
           if (err.response?.status !== 404) {
             console.error("Error loading today's assessment:", err);
@@ -97,9 +98,15 @@ const DASS21Assessment = () => {
             params: { limit: 50 },
           });
           setHistory(historyResponse.data.assessments || []);
-          console.log('Loaded DASS21 history');
         } catch (err) {
           console.error('Error loading history:', err);
+        }
+
+        try {
+          const availabilityResponse = await getModalityAvailability();
+          setModalityAvailability(availabilityResponse.modalities || []);
+        } catch (err) {
+          console.error('Error loading modality availability:', err);
         }
       } catch (err) {
         console.error('Error loading assessments:', err);
@@ -229,6 +236,11 @@ const DASS21Assessment = () => {
       hour: '2-digit',
       minute: '2-digit',
     });
+
+  const inactiveModalities = modalityAvailability.filter(
+    (item) => ['text', 'speech', 'face', 'behavioral'].includes(item.modality)
+      && item.runtime_model_active === false
+  );
 
   const renderStudentShell = (content) => (
     <div className="student-shell">
@@ -414,6 +426,36 @@ const DASS21Assessment = () => {
           DASS-21 is a screening tool, not a diagnosis. Share these results with
           your counselor for proper interpretation and support planning.
         </Alert>
+
+        {result.metadata && (
+          <Alert severity="info" className="student-dass-alert">
+            <div className="student-dass-date-cell">
+              <Chip label="Rule-based" size="small" />
+              <Chip
+                label={`Scoring ${result.metadata.scoring_version || 'unversioned'}`}
+                size="small"
+              />
+              <Chip
+                label={`Mapping ${result.metadata.item_mapping_version || 'unversioned'}`}
+                size="small"
+              />
+            </div>
+          </Alert>
+        )}
+
+        {inactiveModalities.length > 0 && (
+          <Alert severity="warning" className="student-dass-alert">
+            <div className="student-dass-date-cell">
+              {inactiveModalities.map((item) => (
+                <Chip
+                  key={item.modality}
+                  label={`${item.modality}: unavailable`}
+                  size="small"
+                />
+              ))}
+            </div>
+          </Alert>
+        )}
 
         <div className="student-dass-actions">
           <Button

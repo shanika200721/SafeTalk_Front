@@ -1,6 +1,15 @@
 import axios from 'axios';
+import {
+  LEGACY_USER_KEY,
+  LEGACY_USER_ROLE_KEY,
+  STUDENT_USER_KEY,
+  STUDENT_USER_ROLE_KEY,
+  clearAuthSession,
+  getStoredToken,
+  storeAuthSession,
+} from './api';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // Create axios instance with base URL
 const apiClient = axios.create({
@@ -12,7 +21,7 @@ const apiClient = axios.create({
 
 // Add request interceptor to include token
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token');
+  const token = getStoredToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -24,8 +33,7 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('user');
+      clearAuthSession();
       window.location.href = '/login';
     }
     return Promise.reject(error);
@@ -61,9 +69,7 @@ const authService = {
       });
       
       if (response.data.access_token) {
-        localStorage.setItem('access_token', response.data.access_token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        localStorage.setItem('user_role', response.data.user.role);
+        storeAuthSession(response.data.access_token, response.data.user);
       }
       
       return response.data;
@@ -86,9 +92,7 @@ const authService = {
       });
       
       if (response.data.access_token) {
-        localStorage.setItem('access_token', response.data.access_token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        localStorage.setItem('user_role', response.data.user.role);
+        storeAuthSession(response.data.access_token, response.data.user);
       }
       
       return response.data;
@@ -111,9 +115,7 @@ const authService = {
       });
       
       if (response.data.access_token) {
-        localStorage.setItem('access_token', response.data.access_token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        localStorage.setItem('user_role', response.data.user.role);
+        storeAuthSession(response.data.access_token, response.data.user);
       }
       
       return response.data;
@@ -126,9 +128,7 @@ const authService = {
    * Logout user
    */
   logout: () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('user_role');
+    clearAuthSession();
   },
 
   /**
@@ -152,7 +152,8 @@ const authService = {
   updateUserProfile: async (userData) => {
     try {
       const response = await apiClient.put('/auth/me', userData);
-      localStorage.setItem('user', JSON.stringify(response.data));
+      localStorage.setItem(STUDENT_USER_KEY, JSON.stringify(response.data));
+      localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(response.data));
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -163,14 +164,14 @@ const authService = {
    * Get stored auth token
    * @returns {string|null} Auth token or null
    */
-  getToken: () => localStorage.getItem('access_token'),
+  getToken: () => getStoredToken(),
 
   /**
    * Get stored user data
    * @returns {Object|null} User object or null
    */
   getUser: () => {
-    const user = localStorage.getItem('user');
+    const user = localStorage.getItem(STUDENT_USER_KEY) || localStorage.getItem(LEGACY_USER_KEY);
     return user ? JSON.parse(user) : null;
   },
 
@@ -178,28 +179,34 @@ const authService = {
    * Get user role
    * @returns {string|null} User role or null
    */
-  getUserRole: () => localStorage.getItem('user_role'),
+  getUserRole: () => localStorage.getItem(STUDENT_USER_ROLE_KEY) || localStorage.getItem(LEGACY_USER_ROLE_KEY),
 
   /**
    * Check if user is authenticated
    * @returns {boolean} True if authenticated
    */
-  isAuthenticated: () => !!localStorage.getItem('access_token'),
+  isAuthenticated: () => !!getStoredToken(),
 
   /**
    * Check if user is a student
    * @returns {boolean} True if user is a student
    */
-  isStudent: () => localStorage.getItem('user_role') === 'student',
+  isStudent: () => (localStorage.getItem(STUDENT_USER_ROLE_KEY) || localStorage.getItem(LEGACY_USER_ROLE_KEY)) === 'student',
 
   /**
-   * Check if user is a counselor
-   * @returns {boolean} True if user is a counselor or admin
+   * Check if user is a counselor or psychiatrist
+   * @returns {boolean} True if user is a counselor or psychiatrist
    */
   isCounselor: () => {
-    const role = localStorage.getItem('user_role');
-    return role === 'counselor' || role === 'admin' || role === 'psychiatrist';
+    const role = localStorage.getItem(STUDENT_USER_ROLE_KEY) || localStorage.getItem(LEGACY_USER_ROLE_KEY);
+    return role === 'counselor' || role === 'psychiatrist';
   },
+
+  /**
+   * Check if user is an administrator
+   * @returns {boolean} True if user is an administrator
+   */
+  isAdmin: () => (localStorage.getItem(STUDENT_USER_ROLE_KEY) || localStorage.getItem(LEGACY_USER_ROLE_KEY)) === 'admin',
 };
 
 export default authService;

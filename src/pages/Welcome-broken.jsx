@@ -5,7 +5,6 @@ const Welcome = () => {
   const navigate = useNavigate();
   
   React.useEffect(() => {
-    console.log('📄 Welcome component rendered');
   }, []);
 
   return (
@@ -48,7 +47,6 @@ const Welcome = () => {
       }}>
         <button
           onClick={() => {
-            console.log('Login button clicked');
             navigate('/login');
           }}
           style={{
@@ -70,7 +68,6 @@ const Welcome = () => {
         
         <button
           onClick={() => {
-            console.log('Register button clicked');
             navigate('/register');
           }}
           style={{

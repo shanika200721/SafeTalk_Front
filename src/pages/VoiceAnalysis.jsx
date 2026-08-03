@@ -1,5 +1,5 @@
 import React from 'react';
-import { Container, Paper, Typography, Box, Button, IconButton } from '@mui/material';
+import { Alert, Container, Paper, Typography, Box, Button, IconButton } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import Mic from '@mui/icons-material/Mic';
@@ -19,8 +19,11 @@ const VoiceAnalysis = () => {
           Voice Analysis
         </Typography>
         <Typography variant="body1" color="text.secondary" paragraph>
-          Speak naturally and our AI will analyze your voice for emotional markers.
+          Voice-emotion analysis is available only for explicitly submitted audio when consent and runtime verification allow it.
         </Typography>
+        <Alert severity="info" sx={{ textAlign: 'left', mb: 3 }}>
+          Voice-emotion signals are supporting screening evidence only. They are not a diagnosis and do not automatically contact a counselor.
+        </Alert>
         
         <Box sx={{ my: 4 }}>
           <IconButton
@@ -45,13 +48,13 @@ const VoiceAnalysis = () => {
 
         <Box sx={{ mt: 4, bgcolor: '#f5f5f5', p: 3, borderRadius: 2, textAlign: 'left' }}>
           <Typography variant="subtitle2" gutterBottom>
-            Voice analysis detects:
+            Voice analysis may inspect:
           </Typography>
           <ul>
-            <li>Pitch variation (reduced in depression)</li>
-            <li>Speech rate (increased in anxiety, decreased in depression)</li>
-            <li>Voice energy and tremors</li>
-            <li>Pause patterns (cognitive processing difficulties)</li>
+            <li>Pitch variation</li>
+            <li>Speech rate</li>
+            <li>Voice energy</li>
+            <li>Pause patterns</li>
           </ul>
         </Box>
       </Paper>

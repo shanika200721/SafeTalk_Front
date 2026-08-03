@@ -99,7 +99,7 @@ const ReportsView = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
-  const [selectedReport, setSelectedReport] = useState(null);
+  const [_selectedReport, setSelectedReport] = useState(null);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [dateRange, setDateRange] = useState('week');

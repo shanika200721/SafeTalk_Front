@@ -21,7 +21,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import { motion } from 'framer-motion'
+import { motion as Motion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
 import { Sidebar } from '../components/layout/Sidebar'
 import { EmergencySOS } from '../components/common/EmergencySOS'
@@ -107,7 +107,7 @@ const Dashboard = () => {
     <div className="flex">
       <Sidebar />
       <main className="flex-1 overflow-auto">
-        <motion.div
+        <Motion.div
           initial={{
             opacity: 0,
           }}
@@ -330,7 +330,7 @@ const Dashboard = () => {
           </div>
 
           <EmergencySOS />
-        </motion.div>
+        </Motion.div>
       </main>
     </div>
   )
