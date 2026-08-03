@@ -105,7 +105,6 @@ const CounselorDashboardOverview = () => {
     try {
       setLoading(true);
       setError(null);
-      console.log('📡 Fetching dashboard data...');
 
       // Fetch all data in parallel for better performance
       const [analyticsData, alertsData, highRiskData] = await Promise.all([
@@ -114,7 +113,6 @@ const CounselorDashboardOverview = () => {
         counselorService.getHighRiskUsers({ limit: 10 }),
       ]);
 
-      console.log('✅ Data fetched successfully:', { analyticsData, alertsData, highRiskData });
       setAnalytics(analyticsData);
       setAlerts(alertsData?.alerts || []);  // Extract alerts array from nested response
       setHighRiskUsers(highRiskData?.high_risk_users || []);  // Extract high_risk_users array from nested response
@@ -131,8 +129,6 @@ const CounselorDashboardOverview = () => {
    * LIFECYCLE: Fetch data when component mounts
    */
   useEffect(() => {
-    console.log('🎯 DashboardOverview component mounted');
-    console.log('👤 Current user:', user);
     fetchDashboardData();
 
     // Auto-refresh every 5 minutes
@@ -207,7 +203,6 @@ const CounselorDashboardOverview = () => {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setCameraActive(true);
-        console.log('✅ Camera preview opened successfully');
       }
     } catch (err) {
       console.error('❌ Error accessing camera:', err);
@@ -240,7 +235,6 @@ const CounselorDashboardOverview = () => {
 
         streamRef.current = stream;
         setCameraActive(true);
-        console.log('✅ Camera turned ON (background mode)');
       } catch (err) {
         console.error('❌ Error accessing camera:', err);
         setCameraError(
@@ -274,7 +268,6 @@ const CounselorDashboardOverview = () => {
       setCameraActive(false);
       setCameraOpen(false);
       setCameraError(null);
-      console.log('✅ Camera closed successfully');
     } catch (err) {
       console.error('Error closing camera:', err);
     }
@@ -550,6 +543,9 @@ const CounselorDashboardOverview = () => {
                         size="small"
                         variant="contained"
                         onClick={() => {
+                          if (!alert.is_read) {
+                            handleMarkAlertAsRead(alert.id);
+                          }
                           navigate(`/counselor/student/${alert.user_id}`);
                         }}
                       >

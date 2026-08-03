@@ -1,9 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Box, CircularProgress } from '@mui/material';
+import React from 'react';
+import { Box } from '@mui/material';
 
 const VideoBackground = ({ children, overlay = true }) => {
-  const [videoError, setVideoError] = useState(true); // Always start with fallback
-  
   return (
     <Box sx={{ 
       position: 'relative', 

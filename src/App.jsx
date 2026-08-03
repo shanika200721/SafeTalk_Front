@@ -21,7 +21,15 @@ import ChatSupport from './pages/ChatSupport';
 import ChatSelector from './pages/ChatSelector';
 import CounselorChat from './pages/CounselorChat';
 import SafeTalkBot from './pages/SafeTalkBot';
-import BreathingExercise from './pages/BreathingExercise';
+import WellnessHub from './pages/WellnessHub';
+import Meditation from './pages/Meditation';
+import BreathingCenter from './pages/BreathingCenter';
+import AmbientSounds from './pages/AmbientSounds';
+import Journal from './pages/Journal';
+import VideoLibrary from './pages/VideoLibrary';
+import Progress from './pages/Progress';
+import Preferences from './pages/Preferences';
+import MindfulnessActivities from './pages/MindfulnessActivities';
 import DashboardOverview from './pages/counselor/DashboardOverview';
 import CounselorDashboard from './pages/counselor/CounselorDashboard';
 import ViewStudentProfile from './pages/counselor/ViewStudentProfile';
@@ -29,10 +37,20 @@ import AllStudentsView from './pages/counselor/AllStudentsView';
 import EnhancedStudentProfileView from './pages/counselor/EnhancedStudentProfileView';
 import StudentDetailView from './pages/counselor/StudentDetailView';
 import SessionManagement from './pages/counselor/SessionManagement';
-import DebugPage from './pages/DebugPage';
 import TermsOfService from './pages/TermsOfService';
 import Resources from './pages/Resources';
 import Settings from './pages/Settings';
+import AdminPortal from './pages/admin/AdminPortal';
+import FacialAnalysis from './pages/FacialAnalysis';
+import STUDENT_ROUTES from './routes/studentRoutes';
+
+const COUNSELOR_ROLES = new Set(['counselor', 'psychiatrist']);
+
+const LoadingScreen = () => (
+  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+    <p>Loading...</p>
+  </div>
+);
 
 // Error boundary
 class ErrorBoundary extends React.Component {
@@ -45,16 +63,14 @@ class ErrorBoundary extends React.Component {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error, errorInfo) {
-    console.error('Error caught by boundary:', error, errorInfo);
-  }
+  componentDidCatch() {}
 
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: '20px', color: 'red', fontSize: '18px' }}>
-          <h3>Error Loading Application</h3>
-          <p>{this.state.error?.toString()}</p>
+        <div style={{ padding: '20px', color: '#b42318', fontSize: '18px' }}>
+          <h3>Application temporarily unavailable</h3>
+          <p>Please refresh the page or sign in again.</p>
         </div>
       );
     }
@@ -64,18 +80,23 @@ class ErrorBoundary extends React.Component {
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, isStudent, loading } = useAuth();
   
   if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <p>Loading...</p>
-      </div>
-    );
+    return <LoadingScreen />;
   }
   
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (!isStudent) {
+    return (
+      <div style={{ padding: '20px', color: '#7f1d1d', fontSize: '18px' }}>
+        <h3>Unauthorized</h3>
+        <p>You do not have permission to use the student portal.</p>
+      </div>
+    );
   }
   
   return children;
@@ -86,21 +107,39 @@ const CounselorRoute = ({ children }) => {
   const { isAuthenticated, user, loading } = useAuth();
   
   if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <p>Loading...</p>
-      </div>
-    );
+    return <LoadingScreen />;
   }
   
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
   
-  if (user?.role !== 'counselor') {
+  if (user?.role === 'admin') {
+    return <Navigate to="/admin" replace />;
+  }
+
+  if (!COUNSELOR_ROLES.has(user?.role)) {
     return <Navigate to="/dashboard" replace />;
   }
   
+  return children;
+};
+
+const AdminRoute = ({ children }) => {
+  const { isAuthenticated, user, loading } = useAuth();
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user?.role !== 'admin') {
+    return <Navigate to={COUNSELOR_ROLES.has(user?.role) ? '/counselor' : '/dashboard'} replace />;
+  }
+
   return children;
 };
 
@@ -114,18 +153,12 @@ function AppRoutes() {
       <Route path="/register" element={<RegisterSelection />} />
       <Route path="/register/student" element={<StudentRegister />} />
       <Route path="/register/psychiatric" element={<PsychiatricRegister />} />
-      <Route path="/debug" element={<DebugPage />} />
-      <Route path="/test" element={
-        <div style={{ padding: '40px', fontSize: '24px', textAlign: 'center' }}>
-          <h1>TEST PAGE</h1>
-          <p>✅ If you see this, React is working!</p>
-        </div>
-      } />
 
       {/* Student Routes (Protected) */}
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path={STUDENT_ROUTES.DASHBOARD} element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/dashboard-new" element={<ProtectedRoute><DashboardNew /></ProtectedRoute>} />
-      <Route path="/profile-assessment" element={<ProtectedRoute><ProfileAssessment /></ProtectedRoute>} />
+      <Route path={STUDENT_ROUTES.PROFILE_ASSESSMENT} element={<ProtectedRoute><ProfileAssessment /></ProtectedRoute>} />
+      <Route path={STUDENT_ROUTES.FACIAL_ANALYSIS} element={<ProtectedRoute><FacialAnalysis /></ProtectedRoute>} />
       <Route path="/dass21" element={<ProtectedRoute><DASS21Assessment /></ProtectedRoute>} />
       <Route path="/dass21-assessment" element={<ProtectedRoute><DASS21Assessment /></ProtectedRoute>} />
       <Route path="/daily-checkin" element={<ProtectedRoute><DailyCheckin /></ProtectedRoute>} />
@@ -136,7 +169,18 @@ function AppRoutes() {
       <Route path="/chat-with-counselor" element={<ProtectedRoute><ChatSupport /></ProtectedRoute>} />
       <Route path="/safetalk-bot" element={<ProtectedRoute><SafeTalkBot /></ProtectedRoute>} />
       <Route path="/chat-interface" element={<ProtectedRoute><ChatInterface /></ProtectedRoute>} />
-      <Route path="/breathing-exercise" element={<ProtectedRoute><BreathingExercise /></ProtectedRoute>} />
+      <Route path="/wellness" element={<ProtectedRoute><WellnessHub /></ProtectedRoute>} />
+      <Route path="/wellness-hub" element={<ProtectedRoute><WellnessHub /></ProtectedRoute>} />
+      <Route path="/meditation" element={<ProtectedRoute><Meditation /></ProtectedRoute>} />
+      <Route path="/breathing" element={<ProtectedRoute><BreathingCenter /></ProtectedRoute>} />
+      <Route path="/breathing-center" element={<ProtectedRoute><BreathingCenter /></ProtectedRoute>} />
+      <Route path="/breathing-exercise" element={<ProtectedRoute><BreathingCenter /></ProtectedRoute>} />
+      <Route path="/ambient-sounds" element={<ProtectedRoute><AmbientSounds /></ProtectedRoute>} />
+      <Route path="/journal" element={<ProtectedRoute><Journal /></ProtectedRoute>} />
+      <Route path="/video-library" element={<ProtectedRoute><VideoLibrary /></ProtectedRoute>} />
+      <Route path="/mindfulness-activities" element={<ProtectedRoute><MindfulnessActivities /></ProtectedRoute>} />
+      <Route path="/progress" element={<ProtectedRoute><Progress /></ProtectedRoute>} />
+      <Route path="/preferences" element={<ProtectedRoute><Preferences /></ProtectedRoute>} />
       <Route path="/resources" element={<ProtectedRoute><Resources /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/terms" element={<ProtectedRoute><TermsOfService /></ProtectedRoute>} />
@@ -153,6 +197,10 @@ function AppRoutes() {
       <Route path="/counselor/session/:sessionId" element={<CounselorRoute><SessionManagement /></CounselorRoute>} />
       <Route path="/counselor/sessions/user/:userId" element={<CounselorRoute><SessionManagement /></CounselorRoute>} />
 
+      {/* Administration Routes */}
+      <Route path="/admin" element={<AdminRoute><AdminPortal /></AdminRoute>} />
+      <Route path="/admin/dashboard" element={<AdminRoute><AdminPortal /></AdminRoute>} />
+
       {/* Fallback Route */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
@@ -161,7 +209,6 @@ function AppRoutes() {
 
 // Main App Component
 function App() {
-  console.log('🎯 App component mounting');
   
   return (
     <ErrorBoundary>

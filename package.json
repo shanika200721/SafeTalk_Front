@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "test:phase4l1": "node tests/phase4l1-route-profile.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

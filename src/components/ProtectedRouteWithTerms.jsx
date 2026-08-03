@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import LoadingScreen from './LoadingScreen';
 
 const ProtectedRouteWithTerms = ({ children }) => {
-  const { isAuthenticated, user, loading } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   
   if (loading) return <LoadingScreen />;
   

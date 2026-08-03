@@ -91,7 +91,6 @@ const ScheduleView = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [tabValue, setTabValue] = useState(0);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [snackbarOpen, setSnackbarOpen] = useState(false);

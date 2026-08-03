@@ -44,7 +44,6 @@ import {
   Error as ErrorIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import counselorService from '../../services/counselorService';
 import FacialEmotionDetection from '../../components/FacialEmotionDetection';
 
@@ -66,7 +65,6 @@ function TabPanel(props) {
 const EnhancedStudentProfileView = () => {
   const { userId } = useParams();
   const navigate = useNavigate();
-  const { user: currentUser } = useAuth();
 
   // State management
   const [loading, setLoading] = useState(true);

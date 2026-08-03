@@ -12,14 +12,14 @@ import { EmergencySOS } from '../components/common/EmergencySOS';
 const supportOptions = [
   {
     title: 'SafeTalk Bot',
-    subtitle: '24/7 AI mental health support',
+    subtitle: 'Guided AI support chat',
     description:
-      'Use instant guided support when you want to talk through feelings, stress, anxiety, or coping steps.',
+      'Use instant non-diagnostic support when you want to talk through feelings, stress, anxiety, or coping steps.',
     action: 'Start Bot Chat',
     path: '/safetalk-bot',
     icon: SmartToyIcon,
     tone: 'bot',
-    points: ['Instant responses', 'Available anytime', 'Confidential support'],
+    points: ['Instant responses', 'Available anytime', 'Supportive prompts'],
   },
   {
     title: 'Chat with Counselor',

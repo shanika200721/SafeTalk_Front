@@ -136,7 +136,7 @@ function TabPanel({ children, value, index, ...other }) {
   );
 }
 
-const SessionManagement = ({ sessionId = null, userId = null, onClose = null }) => {
+const SessionManagement = ({ sessionId = null, userId = null }) => {
   const navigate = useNavigate();
   const params = useParams();
   const actualSessionId = sessionId || params.sessionId;
@@ -144,7 +144,7 @@ const SessionManagement = ({ sessionId = null, userId = null, onClose = null }) 
 
   // STATE FOR SESSION DATA
   const [session, setSession] = useState(null);
-  const [sessions, setSessions] = useState([]);
+  const [_sessions, _setSessions] = useState([]);
   const [studentSessions, setStudentSessions] = useState([]);
   
   // STATE FOR UI
@@ -164,7 +164,7 @@ const SessionManagement = ({ sessionId = null, userId = null, onClose = null }) 
   });
 
   // STATE FOR SESSION CREATION DIALOG
-  const [openCreateDialog, setOpenCreateDialog] = useState(false);
+  const [_openCreateDialog, setOpenCreateDialog] = useState(false);
   const [newSessionData, setNewSessionData] = useState({
     user_id: actualUserId || '',
     session_type: 'scheduled',
@@ -230,7 +230,7 @@ const SessionManagement = ({ sessionId = null, userId = null, onClose = null }) 
   /**
    * HANDLE: Create new session
    */
-  const handleCreateSession = async () => {
+  const _handleCreateSession = async () => {
     if (!newSessionData.user_id) {
       setError('Please select a student');
       return;

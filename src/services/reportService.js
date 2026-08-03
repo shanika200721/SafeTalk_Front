@@ -15,7 +15,7 @@ const reportService = {
    */
   generatePDFReport: async (studentData) => {
     try {
-      const { user, profile_assessment, dass21_assessment, today_checkin, latest_risk_assessment, critical_alerts } = studentData;
+      const { user, dass21_assessment, today_checkin, latest_risk_assessment, critical_alerts } = studentData;
       
       // Create HTML content for PDF
       const htmlContent = `
@@ -192,7 +192,7 @@ const reportService = {
    */
   generateCSVReport: async (studentData) => {
     try {
-      const { user, profile_assessment, dass21_assessment, today_checkin, latest_risk_assessment, critical_alerts } = studentData;
+      const { user, dass21_assessment, today_checkin, latest_risk_assessment, critical_alerts } = studentData;
 
       // Prepare CSV data
       const csvRows = [
