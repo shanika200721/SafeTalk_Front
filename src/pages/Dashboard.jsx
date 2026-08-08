@@ -23,7 +23,6 @@ import wellnessService from '../services/wellnessService';
 import api from '../services/api';
 import useWebRTCAudioCall, { getCallAudioStatusText } from '../hooks/useWebRTCAudioCall';
 import { Sidebar } from '../components/layout/Sidebar';
-import { EmergencySOS } from '../components/common/EmergencySOS';
 import { WellnessCard } from '../components/wellness/WellnessLayout';
 import STUDENT_ROUTES from '../routes/studentRoutes';
 
@@ -594,7 +593,7 @@ const Dashboard = () => {
             </section>
           )}
 
-          <section className="wellness-card-grid wellness-card-grid-3" aria-label="Wellness dashboard cards">
+          <section className="wellness-card-grid wellness-card-grid-3 wellness-dashboard-cards" aria-label="Wellness dashboard cards">
             {cards.map((card) => (
               <WellnessCard key={card.title} icon={card.icon} title={card.title} subtitle={card.note}>
                 <strong className="wellness-card-value">{card.value}</strong>
@@ -602,7 +601,7 @@ const Dashboard = () => {
             ))}
           </section>
 
-          <section className="wellness-panel wellness-progress-panel">
+          <section className="wellness-panel wellness-progress-panel wellness-dashboard-progress">
             <div>
               <p className="wellness-eyebrow">Assessment Summary</p>
               <h2>Supportive Progress</h2>
@@ -635,7 +634,7 @@ const Dashboard = () => {
             </div>
           </section>
 
-          <section className="wellness-card-grid wellness-card-grid-2" aria-label="Profile and facial check-in cards">
+          <section className="wellness-card-grid wellness-card-grid-2 wellness-dashboard-care" aria-label="Profile and facial check-in cards">
             <WellnessCard icon={ClipboardCheckIcon} title="Profile Assessment" subtitle={profileText}>
               <div className="wellness-card-stack">
                 <strong className="wellness-card-value">{assessmentStatus.replaceAll('_', ' ')}</strong>
@@ -659,7 +658,7 @@ const Dashboard = () => {
             </WellnessCard>
           </section>
 
-          <section className="wellness-panel">
+          <section className="wellness-panel wellness-dashboard-screening">
             <div className="wellness-section-head">
               <div>
                 <p className="wellness-eyebrow">My Screening Inputs</p>
@@ -674,7 +673,7 @@ const Dashboard = () => {
             </dl>
           </section>
 
-          <section className="wellness-dashboard-main">
+          <section className="wellness-dashboard-main wellness-dashboard-insights">
             <div className="wellness-panel">
               <div className="wellness-section-head">
                 <div>
@@ -710,14 +709,14 @@ const Dashboard = () => {
             </div>
           </section>
 
-          <section className="wellness-shortcut-grid" aria-label="Wellness shortcuts">
+          <section className="wellness-shortcut-grid wellness-dashboard-shortcuts" aria-label="Wellness shortcuts">
             <Link to="/breathing" className="wellness-shortcut"><WindIcon className="w-5 h-5" />Breathing Shortcut</Link>
             <Link to="/resources" className="wellness-shortcut"><BookOpenIcon className="w-5 h-5" />Resources Shortcut</Link>
             <Link to="/safetalk-bot" className="wellness-shortcut"><MessageCircleIcon className="w-5 h-5" />SafeTalk Shortcut</Link>
             <Link to="/meditation" className="wellness-shortcut"><MoonIcon className="w-5 h-5" />Meditation</Link>
           </section>
 
-          <section className="wellness-panel">
+          <section className="wellness-panel wellness-dashboard-notifications">
             <div className="wellness-section-head">
               <div>
                 <p className="wellness-eyebrow">Notifications</p>
@@ -734,8 +733,6 @@ const Dashboard = () => {
               ))}
             </div>
           </section>
-
-          <EmergencySOS />
         </div>
       </main>
     </div>

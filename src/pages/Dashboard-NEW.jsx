@@ -24,7 +24,6 @@ import {
 import { motion as Motion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
 import { Sidebar } from '../components/layout/Sidebar'
-import { EmergencySOS } from '../components/common/EmergencySOS'
 
 const moodData = [
   {
@@ -328,8 +327,6 @@ const Dashboard = () => {
               </div>
             </Link>
           </div>
-
-          <EmergencySOS />
         </Motion.div>
       </main>
     </div>

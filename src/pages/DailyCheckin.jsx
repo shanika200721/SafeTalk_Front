@@ -31,7 +31,6 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { getLatestModalityPredictions } from '../services/modalityService';
 import { Sidebar } from '../components/layout/Sidebar';
-import { EmergencySOS } from '../components/common/EmergencySOS';
 
 const moodOptions = [
   { value: 1, emoji: '😢', label: 'Very Bad', helper: 'Heavy day' },
@@ -226,7 +225,6 @@ const DailyCheckin = () => {
       <main className="student-main">
         <div className="student-page student-checkin-page">
           {content}
-          <EmergencySOS />
         </div>
       </main>
     </div>
@@ -475,241 +473,243 @@ const DailyCheckin = () => {
       {error && <Alert severity="error">{error}</Alert>}
       {success && <Alert severity="success">{success}</Alert>}
 
-      <form onSubmit={handleSubmit} className="student-checkin-form">
-        <Card className="student-checkin-card">
-          <CardContent>
-            <div className="student-checkin-section-head">
-              <div>
-                <Typography className="student-checkin-field-title">
-                  How are you feeling today?
-                </Typography>
-                <Typography className="student-checkin-card-note">
-                  Selected: {selectedMood?.label}
-                </Typography>
+      <form onSubmit={handleSubmit} className="student-checkin-form student-checkin-compact-form">
+        <div className="student-checkin-main-column">
+          <Card className="student-checkin-card student-checkin-mood-card">
+            <CardContent>
+              <div className="student-checkin-section-head">
+                <div>
+                  <Typography className="student-checkin-field-title">
+                    How are you feeling today?
+                  </Typography>
+                  <Typography className="student-checkin-card-note">
+                    Selected: {selectedMood?.label}
+                  </Typography>
+                </div>
               </div>
-            </div>
 
-            <div className="student-checkin-mood-grid">
-              {moodOptions.map((option) => (
-                <button
-                  type="button"
-                  key={option.value}
-                  onClick={() => handleMoodChange(option.value)}
-                  className={`student-checkin-mood-option ${
-                    formData.mood === option.value ? 'student-checkin-mood-active' : ''
-                  }`}
-                >
-                  <span
-                    className="student-checkin-mood-emoji"
-                    aria-hidden="true"
+              <div className="student-checkin-mood-grid">
+                {moodOptions.map((option) => (
+                  <button
+                    type="button"
+                    key={option.value}
+                    onClick={() => handleMoodChange(option.value)}
+                    className={`student-checkin-mood-option ${
+                      formData.mood === option.value ? 'student-checkin-mood-active' : ''
+                    }`}
                   >
-                    {option.emoji}
-                  </span>
-                  <span className="student-checkin-mood-name">{option.label}</span>
-                  <span className="student-checkin-mood-helper">{option.helper}</span>
-                </button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="student-checkin-grid student-checkin-grid-2">
-          <SliderCard
-            icon={<Hotel />}
-            label="Sleep Hours Last Night"
-            valueLabel={`${formData.sleep_hours} hours`}
-          >
-            <Slider
-              min={0}
-              max={12}
-              step={0.5}
-              value={formData.sleep_hours}
-              onChange={handleSliderChange('sleep_hours')}
-              valueLabelDisplay="auto"
-            />
-          </SliderCard>
-
-          <SliderCard
-            icon={<FitnessCenter />}
-            label="Exercise Minutes Today"
-            valueLabel={`${formData.exercise_minutes} minutes`}
-          >
-            <Slider
-              min={0}
-              max={180}
-              step={5}
-              value={formData.exercise_minutes}
-              onChange={handleSliderChange('exercise_minutes')}
-              valueLabelDisplay="auto"
-            />
-          </SliderCard>
-        </div>
-
-        <div className="student-checkin-grid student-checkin-grid-2">
-          <SliderCard
-            icon={<Favorite />}
-            label="Stress Level"
-            valueLabel={`${formData.stress_level}/10`}
-          >
-            <Slider
-              min={1}
-              max={10}
-              step={1}
-              value={formData.stress_level}
-              onChange={handleSliderChange('stress_level')}
-              valueLabelDisplay="auto"
-            />
-          </SliderCard>
-
-          <SliderCard
-            icon={<Psychology />}
-            label="Anxiety Level"
-            valueLabel={`${formData.anxiety_level}/10`}
-          >
-            <Slider
-              min={1}
-              max={10}
-              step={1}
-              value={formData.anxiety_level}
-              onChange={handleSliderChange('anxiety_level')}
-              valueLabelDisplay="auto"
-            />
-          </SliderCard>
-        </div>
-
-        <div className="student-checkin-grid student-checkin-grid-2">
-          <Card className="student-checkin-card">
-            <CardContent>
-              <div className="student-checkin-field-head">
-                <span className="student-checkin-card-icon"><Groups /></span>
-                <div>
-                  <Typography className="student-checkin-field-title">
-                    Social Interaction Today
-                  </Typography>
-                  <Typography className="student-checkin-card-note">
-                    Choose the closest match for today.
-                  </Typography>
-                </div>
+                    <span
+                      className="student-checkin-mood-emoji"
+                      aria-hidden="true"
+                    >
+                      {option.emoji}
+                    </span>
+                    <span className="student-checkin-mood-name">{option.label}</span>
+                    <span className="student-checkin-mood-helper">{option.helper}</span>
+                  </button>
+                ))}
               </div>
-              <FormControl fullWidth>
-                <Select
-                  name="social_interaction"
-                  value={formData.social_interaction}
-                  onChange={handleInputChange}
-                  className="student-checkin-select"
-                >
-                  {socialOptions.map((option) => (
-                    <MenuItem key={option} value={option}>
-                      {option}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
             </CardContent>
           </Card>
 
-          <Card className="student-checkin-card student-checkin-risk-factor-card">
+          <Card className="student-checkin-card student-checkin-notes-card">
             <CardContent>
-              <div className="student-checkin-field-head">
-                <span className="student-checkin-card-icon"><WarningAmber /></span>
-                <div>
-                  <Typography className="student-checkin-field-title">
-                    Risk Factors
-                  </Typography>
-                  <Typography className="student-checkin-card-note">
-                    Mark anything that applies today.
-                  </Typography>
-                </div>
-              </div>
-              <div className="student-checkin-checkboxes">
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      name="negative_thoughts"
-                      checked={formData.negative_thoughts}
-                      onChange={handleInputChange}
-                    />
-                  }
-                  label="Experiencing negative thoughts"
-                />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      name="substance_use_today"
-                      checked={formData.substance_use_today}
-                      onChange={handleInputChange}
-                    />
-                  }
-                  label="Substance use today"
-                />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      name="self_harm_thoughts"
-                      checked={formData.self_harm_thoughts}
-                      onChange={handleInputChange}
-                    />
-                  }
-                  label="Thoughts of self-harm"
-                />
-              </div>
+              <Typography className="student-checkin-field-title">
+                Additional Notes
+              </Typography>
+              <Typography className="student-checkin-card-note">
+                Optional context your counselor may need.
+              </Typography>
+              <TextField
+                fullWidth
+                name="notes"
+                value={formData.notes}
+                onChange={handleInputChange}
+                placeholder="Share anything else you would like your counselor to know..."
+                multiline
+                rows={2}
+                className="student-checkin-textarea"
+              />
             </CardContent>
           </Card>
         </div>
 
-        <Card className="student-checkin-card">
-          <CardContent>
-            <Typography className="student-checkin-field-title">
-              Additional Notes
-            </Typography>
-            <Typography className="student-checkin-card-note">
-              Optional context your counselor may need.
-            </Typography>
-            <TextField
-              fullWidth
-              name="notes"
-              value={formData.notes}
-              onChange={handleInputChange}
-              placeholder="Share anything else you would like your counselor to know..."
-              multiline
-              rows={4}
-              className="student-checkin-textarea"
-            />
-          </CardContent>
-        </Card>
+        <div className="student-checkin-side-column">
+          <div className="student-checkin-grid student-checkin-grid-2 student-checkin-compact-sliders">
+            <SliderCard
+              icon={<Hotel />}
+              label="Sleep Hours"
+              valueLabel={`${formData.sleep_hours} hours`}
+            >
+              <Slider
+                min={0}
+                max={12}
+                step={0.5}
+                value={formData.sleep_hours}
+                onChange={handleSliderChange('sleep_hours')}
+                valueLabelDisplay="auto"
+              />
+            </SliderCard>
 
-        <RiskSummary />
+            <SliderCard
+              icon={<FitnessCenter />}
+              label="Exercise"
+              valueLabel={`${formData.exercise_minutes} min`}
+            >
+              <Slider
+                min={0}
+                max={180}
+                step={5}
+                value={formData.exercise_minutes}
+                onChange={handleSliderChange('exercise_minutes')}
+                valueLabelDisplay="auto"
+              />
+            </SliderCard>
 
-        <div className="student-checkin-actions">
-          <Button
-            variant="outlined"
-            startIcon={<BarChart />}
-            onClick={() => navigate('/checkin-records')}
-            className="student-checkin-secondary-action"
-          >
-            View All Records
-          </Button>
-          <div className="student-checkin-actions-right">
+            <SliderCard
+              icon={<Favorite />}
+              label="Stress"
+              valueLabel={`${formData.stress_level}/10`}
+            >
+              <Slider
+                min={1}
+                max={10}
+                step={1}
+                value={formData.stress_level}
+                onChange={handleSliderChange('stress_level')}
+                valueLabelDisplay="auto"
+              />
+            </SliderCard>
+
+            <SliderCard
+              icon={<Psychology />}
+              label="Anxiety"
+              valueLabel={`${formData.anxiety_level}/10`}
+            >
+              <Slider
+                min={1}
+                max={10}
+                step={1}
+                value={formData.anxiety_level}
+                onChange={handleSliderChange('anxiety_level')}
+                valueLabelDisplay="auto"
+              />
+            </SliderCard>
+          </div>
+
+          <div className="student-checkin-grid student-checkin-grid-2 student-checkin-compact-support">
+            <Card className="student-checkin-card">
+              <CardContent>
+                <div className="student-checkin-field-head">
+                  <span className="student-checkin-card-icon"><Groups /></span>
+                  <div>
+                    <Typography className="student-checkin-field-title">
+                      Social Interaction
+                    </Typography>
+                    <Typography className="student-checkin-card-note">
+                      Choose the closest match.
+                    </Typography>
+                  </div>
+                </div>
+                <FormControl fullWidth>
+                  <Select
+                    name="social_interaction"
+                    value={formData.social_interaction}
+                    onChange={handleInputChange}
+                    className="student-checkin-select"
+                  >
+                    {socialOptions.map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </CardContent>
+            </Card>
+
+            <Card className="student-checkin-card student-checkin-risk-factor-card">
+              <CardContent>
+                <div className="student-checkin-field-head">
+                  <span className="student-checkin-card-icon"><WarningAmber /></span>
+                  <div>
+                    <Typography className="student-checkin-field-title">
+                      Risk Factors
+                    </Typography>
+                    <Typography className="student-checkin-card-note">
+                      Mark anything that applies.
+                    </Typography>
+                  </div>
+                </div>
+                <div className="student-checkin-checkboxes">
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        name="negative_thoughts"
+                        checked={formData.negative_thoughts}
+                        onChange={handleInputChange}
+                      />
+                    }
+                    label="Negative thoughts"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        name="substance_use_today"
+                        checked={formData.substance_use_today}
+                        onChange={handleInputChange}
+                      />
+                    }
+                    label="Substance use today"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        name="self_harm_thoughts"
+                        checked={formData.self_harm_thoughts}
+                        onChange={handleInputChange}
+                      />
+                    }
+                    label="Thoughts of self-harm"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <RiskSummary />
+
+          <div className="student-checkin-actions">
             <Button
-              onClick={() => (isEditing ? setMode('view') : navigate('/dashboard'))}
               variant="outlined"
-              disabled={submitting}
+              startIcon={<BarChart />}
+              onClick={() => navigate('/checkin-records')}
+              className="student-checkin-secondary-action"
             >
-              {isEditing ? 'Cancel' : 'Back'}
+              Records
             </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              startIcon={<Save />}
-              disabled={submitting}
-              className="student-checkin-primary-action"
-            >
-              {submitting
-                ? 'Saving...'
-                : isEditing
-                  ? 'Update Check-in'
-                  : 'Submit Check-in'}
-            </Button>
+            <div className="student-checkin-actions-right">
+              <Button
+                onClick={() => (isEditing ? setMode('view') : navigate('/dashboard'))}
+                variant="outlined"
+                disabled={submitting}
+              >
+                {isEditing ? 'Cancel' : 'Back'}
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                startIcon={<Save />}
+                disabled={submitting}
+                className="student-checkin-primary-action"
+              >
+                {submitting
+                  ? 'Saving...'
+                  : isEditing
+                    ? 'Update'
+                    : 'Submit'}
+              </Button>
+            </div>
           </div>
         </div>
       </form>

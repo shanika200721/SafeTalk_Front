@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { motion as Motion } from 'framer-motion';
 import { Sidebar } from '../components/layout/Sidebar';
-import { EmergencySOS } from '../components/common/EmergencySOS';
 
 const STAGE_DURATION_MS = 4000;
 const CYCLE_DURATION_MS = STAGE_DURATION_MS * 4;
@@ -665,8 +664,6 @@ const BreathingExercise = () => {
               </aside>
             </div>
           )}
-
-          <EmergencySOS />
         </div>
       </main>
     </div>

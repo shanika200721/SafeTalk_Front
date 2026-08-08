@@ -27,7 +27,6 @@ import RestartAlt from '@mui/icons-material/RestartAlt';
 import Save from '@mui/icons-material/Save';
 import { useNavigate } from 'react-router-dom';
 import { Sidebar } from '../components/layout/Sidebar';
-import { EmergencySOS } from '../components/common/EmergencySOS';
 import api from '../services/api';
 
 const questions = [
@@ -188,7 +187,6 @@ const DASS21Assessment = () => {
       <main className="student-main">
         <div className="student-page student-dass-page">
           {content}
-          <EmergencySOS />
         </div>
       </main>
     </div>

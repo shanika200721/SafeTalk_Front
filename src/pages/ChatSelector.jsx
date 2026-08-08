@@ -7,7 +7,6 @@ import {
 import { Button, Card, CardContent, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { Sidebar } from '../components/layout/Sidebar';
-import { EmergencySOS } from '../components/common/EmergencySOS';
 
 const supportOptions = [
   {
@@ -123,8 +122,6 @@ const ChatSelector = () => {
               </Typography>
             </CardContent>
           </Card>
-
-          <EmergencySOS />
         </div>
       </main>
     </div>

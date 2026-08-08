@@ -36,7 +36,6 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { Sidebar } from '../components/layout/Sidebar';
-import { EmergencySOS } from '../components/common/EmergencySOS';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import AuthenticatedAudio from '../components/common/AuthenticatedAudio';
@@ -526,7 +525,6 @@ const ChatSupport = () => {
       <main className="student-main">
         <div className="student-page student-chat-page">
           {content}
-          <EmergencySOS />
         </div>
       </main>
     </div>

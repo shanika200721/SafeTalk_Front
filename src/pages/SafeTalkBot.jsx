@@ -22,7 +22,6 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { Sidebar } from '../components/layout/Sidebar';
-import { EmergencySOS } from '../components/common/EmergencySOS';
 import api from '../services/api';
 
 const formatMessageText = (text) => {
@@ -248,7 +247,6 @@ const SafeTalkBot = () => {
       <main className="student-main">
         <div className="student-page student-bot-page">
           {content}
-          <EmergencySOS />
         </div>
       </main>
     </div>
