@@ -43,6 +43,15 @@ import api from '../services/api';
 import VideoBackground from '../components/common/VideoBackground';
 import AuthenticatedAudio from '../components/common/AuthenticatedAudio';
 
+const SRI_LANKA_TIME_ZONE = 'Asia/Colombo';
+
+const parseServerDate = (timestamp) => {
+  if (!timestamp) return null;
+  const value = String(timestamp);
+  const hasTimezone = /(?:z|[+-]\d{2}:?\d{2})$/i.test(value);
+  return new Date(hasTimezone ? value : `${value}Z`);
+};
+
 const formatMessageText = (text) => {
   if (!text) return [];
   return text
@@ -243,11 +252,14 @@ const CounselorChat = () => {
   };
 
   const formatTime = (timestamp) => {
-    return new Date(timestamp).toLocaleTimeString('en-US', {
+    const date = parseServerDate(timestamp);
+    if (!date || Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('en-LK', {
+      timeZone: SRI_LANKA_TIME_ZONE,
       hour: '2-digit',
       minute: '2-digit',
       hour12: true
-    });
+    }).format(date);
   };
 
   const getInitials = (name) => {

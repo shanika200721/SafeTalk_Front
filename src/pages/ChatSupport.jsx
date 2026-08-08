@@ -44,6 +44,14 @@ import api from '../services/api';
 import AuthenticatedAudio from '../components/common/AuthenticatedAudio';
 
 const MAX_RECORDING_SECONDS = Number(import.meta.env.VITE_MAX_VOICE_RECORDING_SECONDS || 90);
+const SRI_LANKA_TIME_ZONE = 'Asia/Colombo';
+
+const parseServerDate = (timestamp) => {
+  if (!timestamp) return null;
+  const value = String(timestamp);
+  const hasTimezone = /(?:z|[+-]\d{2}:?\d{2})$/i.test(value);
+  return new Date(hasTimezone ? value : `${value}Z`);
+};
 
 const formatMessageText = (text) => {
   if (!text) return [];
@@ -283,12 +291,16 @@ const ChatSupport = () => {
     }
   };
 
-  const formatTime = (timestamp) =>
-    new Date(timestamp).toLocaleTimeString('en-US', {
+  const formatTime = (timestamp) => {
+    const date = parseServerDate(timestamp);
+    if (!date || Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('en-LK', {
+      timeZone: SRI_LANKA_TIME_ZONE,
       hour: '2-digit',
       minute: '2-digit',
       hour12: true,
-    });
+    }).format(date);
+  };
 
   const getInitials = (name) =>
     name

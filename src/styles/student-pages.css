@@ -3900,6 +3900,214 @@
   font-weight: 850;
 }
 
+.wellness-hero-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: stretch;
+  min-width: min(100%, 18rem);
+}
+
+.wellness-call-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  min-height: 4rem;
+  padding: 0.7rem 0.8rem 0.7rem 1rem;
+  border: 1px solid var(--wellness-border);
+  border-radius: 8px;
+  background: var(--wellness-surface);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.wellness-call-card div {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.wellness-call-card strong {
+  color: var(--wellness-ink);
+  line-height: 1.15;
+}
+
+.wellness-call-card span {
+  color: var(--wellness-muted);
+  font-size: 0.82rem;
+}
+
+.wellness-call-card .wellness-icon-action {
+  color: var(--wellness-accent);
+}
+
+.wellness-call-card .wellness-call-cancel {
+  width: auto;
+  padding: 0 0.75rem;
+  color: #dc2626;
+  font-weight: 900;
+}
+
+.wellness-call-notice {
+  padding: 0.9rem 1rem;
+  border: 1px solid #ccfbf1;
+  border-radius: 8px;
+  background: #f0fdfa;
+  color: #0f766e;
+  font-weight: 800;
+}
+
+.student-top-icon-row {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.student-top-icon {
+  position: relative;
+  width: 2.75rem;
+  height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--wellness-border);
+  border-radius: 8px;
+  background: var(--wellness-surface);
+  color: var(--wellness-accent);
+  cursor: pointer;
+}
+
+.student-top-icon:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.student-top-icon span {
+  position: absolute;
+  top: -0.45rem;
+  right: -0.45rem;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.student-notification-popover {
+  position: absolute;
+  z-index: 5;
+  top: 3.35rem;
+  right: 0;
+  width: min(22rem, calc(100vw - 2rem));
+  border: 1px solid var(--wellness-border);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 20px 46px rgba(15, 23, 42, 0.14);
+}
+
+.student-notification-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--wellness-border);
+}
+
+.student-notification-head strong {
+  color: var(--wellness-ink);
+}
+
+.student-notification-head button {
+  border: none;
+  background: transparent;
+  color: var(--wellness-muted);
+  cursor: pointer;
+}
+
+.student-notification-list {
+  max-height: 18rem;
+  overflow-y: auto;
+}
+
+.student-notification-list p,
+.student-notification-item {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.student-notification-item {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.student-notification-item strong {
+  color: var(--wellness-ink);
+  font-size: 0.9rem;
+}
+
+.student-notification-item span,
+.student-notification-list p {
+  color: var(--wellness-muted);
+  line-height: 1.45;
+}
+
+.student-active-call {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  background: #f0fdf4;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.06);
+}
+
+.student-incoming-call {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.student-active-call div:first-child {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.student-active-call strong {
+  color: #14532d;
+  font-size: 1rem;
+}
+
+.student-incoming-call strong {
+  color: #9a3412;
+}
+
+.student-active-call span {
+  color: #166534;
+  font-weight: 750;
+}
+
+.student-incoming-call span {
+  color: #9a3412;
+}
+
+.student-call-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .wellness-card-grid {
   display: grid;
   gap: 1rem;
@@ -4543,6 +4751,24 @@
   .wellness-section-head {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .wellness-hero-actions {
+    width: 100%;
+  }
+
+  .student-top-icon-row {
+    justify-content: flex-start;
+  }
+
+  .student-active-call,
+  .student-call-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .student-call-actions .student-btn {
+    width: 100%;
   }
 
   .wellness-toolbar,
