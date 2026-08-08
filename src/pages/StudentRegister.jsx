@@ -1,27 +1,24 @@
 import React, { useState } from 'react';
-import {
-  Box,
-  Container,
-  Typography,
-  TextField,
-  Button,
-  Paper,
-  Alert,
-  Fade,
-  IconButton,
-  InputAdornment,
-} from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import VideoBackground from '../components/common/VideoBackground';
-import Psychology from '@mui/icons-material/Psychology';
-import Visibility from '@mui/icons-material/Visibility';
-import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import SchoolIcon from '@mui/icons-material/School';
+import PersonIcon from '@mui/icons-material/Person';
+import EmailIcon from '@mui/icons-material/Email';
+import BadgeIcon from '@mui/icons-material/Badge';
+import LockIcon from '@mui/icons-material/Lock';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useAuth } from '../context/AuthContext';
+import welcomeGirl from '../assets/welcome-girl.webp';
+import './RegisterFlow.css';
 
 const StudentRegister = () => {
   const navigate = useNavigate();
   const { register } = useAuth();
-  
+
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -30,7 +27,7 @@ const StudentRegister = () => {
     password: '',
     confirmPassword: '',
   });
-  
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
@@ -39,21 +36,21 @@ const StudentRegister = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
     }
-    
+
     setLoading(true);
 
     try {
@@ -62,12 +59,11 @@ const StudentRegister = () => {
         username: formData.username,
         password: formData.password,
         full_name: `${formData.firstName} ${formData.lastName}`,
-        role: 'student'
+        role: 'student',
       });
-      
+
       if (result.success) {
         setSuccess(true);
-        // Redirect to terms and conditions page
         setTimeout(() => {
           navigate('/terms');
         }, 1500);
@@ -82,190 +78,212 @@ const StudentRegister = () => {
   };
 
   return (
-    <VideoBackground overlay={true}>
-      <Container maxWidth="sm">
-        <Fade in={true} timeout={1000}>
-          <Box sx={{ 
-            minHeight: '100vh',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            py: 4
-          }}>
-            <Paper
-              elevation={24}
-              sx={{
-                p: { xs: 3, md: 5 },
-                background: 'rgba(255, 255, 255, 0.95)',
-                backdropFilter: 'blur(10px)',
-                borderRadius: 4,
-              }}
+    <main className="register-page" aria-label="SafeTalk student registration">
+      <section className="register-shell register-form-shell">
+        <aside className="register-story-panel" aria-label="Student registration message">
+          <div className="register-brand">
+            <span className="register-brand-mark" aria-hidden="true">
+              <FavoriteBorderIcon />
+            </span>
+            <span>
+              <strong>SafeTalk</strong>
+              <small>Mental Health Support</small>
+            </span>
+          </div>
+
+          <div className="register-story-copy">
+            <h1>
+              <span>Join With</span>
+              Care
+            </h1>
+            <p>
+              Create your student account and begin a private wellbeing journey
+              shaped around your needs.
+            </p>
+          </div>
+
+          <div className="register-story-highlights">
+            <article>
+              <SchoolIcon aria-hidden="true" />
+              <span>
+                <strong>Student support</strong>
+                <small>Tools for daily check-ins and assessment.</small>
+              </span>
+            </article>
+            <article>
+              <PsychologyIcon aria-hidden="true" />
+              <span>
+                <strong>Beyond words</strong>
+                <small>Support informed by multiple wellbeing signals.</small>
+              </span>
+            </article>
+          </div>
+
+          <div className="register-illustration" aria-hidden="true">
+            <img src={welcomeGirl} alt="" />
+          </div>
+        </aside>
+
+        <section className="register-action-panel" aria-label="Student registration form">
+          <div className="register-action-card">
+            <div className="register-form-icon" aria-hidden="true">
+              <SchoolIcon />
+            </div>
+            <p className="register-eyebrow">Student account</p>
+            <h2>Create your account</h2>
+            <p className="register-action-copy">
+              Use your details to set up secure access to SafeTalk.
+            </p>
+
+            {error && (
+              <div className="register-alert error" role="alert">
+                {error}
+              </div>
+            )}
+
+            {success && (
+              <div className="register-alert success" role="status">
+                Registration successful. Redirecting to terms and conditions...
+              </div>
+            )}
+
+            <form className="register-form" onSubmit={handleSubmit}>
+              <div className="register-two-column">
+                <label className="register-field">
+                  <span>First name</span>
+                  <span className="register-input-wrap">
+                    <PersonIcon aria-hidden="true" />
+                    <input
+                      name="firstName"
+                      value={formData.firstName}
+                      onChange={handleChange}
+                      required
+                      placeholder="John"
+                      autoComplete="given-name"
+                    />
+                  </span>
+                </label>
+
+                <label className="register-field">
+                  <span>Last name</span>
+                  <span className="register-input-wrap">
+                    <PersonIcon aria-hidden="true" />
+                    <input
+                      name="lastName"
+                      value={formData.lastName}
+                      onChange={handleChange}
+                      required
+                      placeholder="Smith"
+                      autoComplete="family-name"
+                    />
+                  </span>
+                </label>
+              </div>
+
+              <label className="register-field">
+                <span>Email</span>
+                <span className="register-input-wrap">
+                  <EmailIcon aria-hidden="true" />
+                  <input
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                    placeholder="john@gmail.com"
+                    autoComplete="email"
+                  />
+                </span>
+              </label>
+
+              <label className="register-field">
+                <span>Username</span>
+                <span className="register-input-wrap">
+                  <BadgeIcon aria-hidden="true" />
+                  <input
+                    name="username"
+                    value={formData.username}
+                    onChange={handleChange}
+                    required
+                    placeholder="your_username"
+                    autoComplete="username"
+                  />
+                </span>
+              </label>
+
+              <div className="register-two-column">
+                <label className="register-field">
+                  <span>Password</span>
+                  <span className="register-input-wrap">
+                    <LockIcon aria-hidden="true" />
+                    <input
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={formData.password}
+                      onChange={handleChange}
+                      required
+                      placeholder="Password"
+                      autoComplete="new-password"
+                    />
+                    <button
+                      className="register-password-toggle"
+                      type="button"
+                      onClick={() => setShowPassword((value) => !value)}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                    </button>
+                  </span>
+                </label>
+
+                <label className="register-field">
+                  <span>Confirm</span>
+                  <span className="register-input-wrap">
+                    <LockIcon aria-hidden="true" />
+                    <input
+                      name="confirmPassword"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      required
+                      placeholder="Confirm"
+                      autoComplete="new-password"
+                    />
+                    <button
+                      className="register-password-toggle"
+                      type="button"
+                      onClick={() => setShowConfirmPassword((value) => !value)}
+                      aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                    </button>
+                  </span>
+                </label>
+              </div>
+
+              <button
+                className="register-submit-button"
+                type="submit"
+                disabled={loading || success}
+              >
+                <SchoolIcon />
+                {loading ? 'Registering...' : 'Register'}
+                <ArrowForwardIcon className="register-submit-arrow" />
+              </button>
+            </form>
+
+            <button
+              className="register-secondary-button"
+              type="button"
+              onClick={() => navigate('/register')}
             >
-              {/* Logo */}
-              <Box sx={{ textAlign: 'center', mb: 4 }}>
-                <Psychology sx={{ fontSize: 60, color: '#4A90E2' }} />
-                <Typography variant="h5" sx={{ fontWeight: 700, color: '#4A90E2', mt: 1 }}>
-                  SAFE TALK
-                </Typography>
-              </Box>
-
-              <Typography variant="h5" gutterBottom align="center" sx={{ fontWeight: 600, mb: 3 }}>
-                REGISTER - STUDENT
-              </Typography>
-
-              {error && (
-                <Alert severity="error" sx={{ mb: 3 }}>
-                  {error}
-                </Alert>
-              )}
-
-              {success && (
-                <Alert severity="success" sx={{ mb: 3 }}>
-                  Registration Successful! Redirecting to terms and conditions...
-                </Alert>
-              )}
-
-              <form onSubmit={handleSubmit}>
-                <TextField
-                  fullWidth
-                  label="FIRST NAME"
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  required
-                  margin="normal"
-                  variant="outlined"
-                  placeholder="JOHN"
-                />
-
-                <TextField
-                  fullWidth
-                  label="LAST NAME"
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  required
-                  margin="normal"
-                  placeholder="SMITH"
-                />
-
-                <TextField
-                  fullWidth
-                  label="E-MAIL"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  margin="normal"
-                  placeholder="JOHN@GMAIL.COM"
-                />
-
-                <TextField
-                  fullWidth
-                  label="USERNAME"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleChange}
-                  required
-                  margin="normal"
-                  placeholder="your_username"
-                />
-
-                <TextField
-                  fullWidth
-                  label="PASSWORD"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  margin="normal"
-                  placeholder="********"
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          onClick={() => setShowPassword(!showPassword)}
-                          edge="end"
-                        >
-                          {showPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-
-                <TextField
-                  fullWidth
-                  label="CONFIRM PASSWORD"
-                  name="confirmPassword"
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  required
-                  margin="normal"
-                  placeholder="********"
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          edge="end"
-                        >
-                          {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-
-                <Button
-                  type="submit"
-                  fullWidth
-                  variant="contained"
-                  size="large"
-                  disabled={loading || success}
-                  sx={{
-                    mt: 3,
-                    py: 1.5,
-                    background: 'linear-gradient(135deg, #4A90E2 0%, #50E3C2 100%)',
-                    fontSize: '1.2rem',
-                    '&:hover': {
-                      background: 'linear-gradient(135deg, #3570B0 0%, #38BFA0 100%)',
-                    }
-                  }}
-                >
-                  {loading ? 'REGISTERING...' : 'REGISTER'}
-                </Button>
-
-                <Button
-                  fullWidth
-                  variant="text"
-                  onClick={() => navigate('/register')}
-                  sx={{ mt: 2 }}
-                >
-                  Back to Registration Type
-                </Button>
-              </form>
-            </Paper>
-
-            {/* Footer */}
-            <Typography 
-              variant="body2" 
-              sx={{ 
-                mt: 4,
-                color: 'white',
-                textAlign: 'center',
-                textShadow: '1px 1px 2px rgba(0,0,0,0.5)'
-              }}
-            >
-              SAFE TALK MULTI MODEL AI AGENT ©2025 ALL RIGHTS RESERVED
-            </Typography>
-          </Box>
-        </Fade>
-      </Container>
-    </VideoBackground>
+              <ArrowBackIcon />
+              Back to registration type
+            </button>
+          </div>
+        </section>
+      </section>
+    </main>
   );
 };
 
