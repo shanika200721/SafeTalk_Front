@@ -216,11 +216,11 @@ const Dashboard = () => {
                   <ActivityIcon className="w-5 h-5 text-blue-600" />
                 </div>
                 <p className="text-sm font-medium text-gray-600">
-                  Depression Score
+                  DASS-21 Check
                 </p>
               </div>
-              <p className="text-3xl font-bold text-gray-900">5</p>
-              <p className="text-sm text-gray-500 mt-1">Normal</p>
+              <p className="text-3xl font-bold text-gray-900">Private</p>
+              <p className="text-sm text-gray-500 mt-1">Counselor review</p>
             </div>
 
             <div className="bg-white rounded-xl p-6 border border-gray-200">
