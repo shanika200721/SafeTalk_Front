@@ -23,7 +23,6 @@ import {
 import {
   ArrowBack as ArrowBackIcon,
   AttachFile as AttachFileIcon,
-  Call as CallIcon,
   Close as CloseIcon,
   Delete as DeleteIcon,
   Menu as MenuIcon,
@@ -34,7 +33,6 @@ import {
   Refresh as RefreshIcon,
   Send as SendIcon,
   Stop as StopIcon,
-  Videocam as VideoCallIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { Sidebar } from '../components/layout/Sidebar';
@@ -311,16 +309,6 @@ const ChatSupport = () => {
 
   const handleCloseMenu = () => {
     setMenuAnchor(null);
-  };
-
-  const handleVoiceCall = () => {
-    alert(`Initiating voice call with ${counselorInfo?.full_name}...`);
-    handleCloseMenu();
-  };
-
-  const handleVideoCall = () => {
-    alert(`Initiating video call with ${counselorInfo?.full_name}...`);
-    handleCloseMenu();
   };
 
   const handleStartVoiceMessage = async () => {
@@ -809,28 +797,6 @@ const ChatSupport = () => {
             )}
 
             <div className="student-chat-tools">
-              <Tooltip title="Voice Call">
-                <span>
-                  <IconButton
-                    onClick={handleVoiceCall}
-                    disabled={!counselorInfo}
-                    className="student-chat-tool-btn"
-                  >
-                    <CallIcon />
-                  </IconButton>
-                </span>
-              </Tooltip>
-              <Tooltip title="Video Call">
-                <span>
-                  <IconButton
-                    onClick={handleVideoCall}
-                    disabled={!counselorInfo}
-                    className="student-chat-tool-btn"
-                  >
-                    <VideoCallIcon />
-                  </IconButton>
-                </span>
-              </Tooltip>
               <Tooltip title="More Options">
                 <span>
                   <IconButton

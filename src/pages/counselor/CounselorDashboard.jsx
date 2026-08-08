@@ -75,6 +75,7 @@ import counselorService from '../../services/counselorService';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import useWebRTCAudioCall, { getCallAudioStatusText } from '../../hooks/useWebRTCAudioCall';
+import { Sidebar } from '../../components/layout/Sidebar';
 
 const riskColors = {
   LOW: '#2e7d32',
@@ -576,20 +577,28 @@ const CounselorDashboard = () => {
 
   if (loading) {
     return (
-      <Box sx={{ minHeight: '70vh', display: 'grid', placeItems: 'center', bgcolor: '#f8fafc' }}>
-        <Stack alignItems="center" spacing={2}>
-          <CircularProgress />
-          <Typography sx={{ color: '#64748b', fontWeight: 700 }}>
-            Loading counselor dashboard...
-          </Typography>
-        </Stack>
-      </Box>
+      <div className="student-shell">
+        <Sidebar variant="counselor" />
+        <main className="student-main">
+          <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', bgcolor: '#f8fafc', pt: { xs: 6, lg: 0 } }}>
+            <Stack alignItems="center" spacing={2}>
+              <CircularProgress />
+              <Typography sx={{ color: '#64748b', fontWeight: 700 }}>
+                Loading counselor dashboard...
+              </Typography>
+            </Stack>
+          </Box>
+        </main>
+      </div>
     );
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#eef7f6' }}>
-      <Container maxWidth="xl" sx={{ py: { xs: 2, md: 3.5 } }}>
+    <div className="student-shell">
+      <Sidebar variant="counselor" />
+      <main className="student-main">
+        <Box sx={{ minHeight: '100vh', bgcolor: '#eef7f6', pt: { xs: 6, lg: 0 } }}>
+          <Container maxWidth="xl" sx={{ py: { xs: 2, md: 3.5 } }}>
         <Paper
           sx={{
             p: { xs: 2.5, md: 4 },
@@ -1308,8 +1317,10 @@ const CounselorDashboard = () => {
           </Table>
         </TableContainer>
       </Paper>
-      </Container>
-    </Box>
+          </Container>
+        </Box>
+      </main>
+    </div>
   );
 };
 

@@ -17,8 +17,6 @@ import {
   Paper,
   Select,
   Stack,
-  Tab,
-  Tabs,
   Table,
   TableBody,
   TableCell,
@@ -36,23 +34,17 @@ import {
   Assessment as AssessmentIcon,
   Block as BlockIcon,
   CheckCircle as CheckCircleIcon,
-  Dashboard as DashboardIcon,
   Delete as DeleteIcon,
   Download as DownloadIcon,
   Edit as EditIcon,
   History as HistoryIcon,
-  LibraryBooks as LibraryBooksIcon,
   LockReset as LockResetIcon,
   MailOutline as MailOutlineIcon,
   ManageSearch as AuditIcon,
-  ModelTraining as ModelIcon,
-  People as PeopleIcon,
   PersonAdd as PersonAddIcon,
   PlayArrow as PlayArrowIcon,
   Refresh as RefreshIcon,
-  School as SchoolIcon,
   Search as SearchIcon,
-  Settings as SettingsIcon,
   Stop as StopIcon,
   SwapHoriz as SwapHorizIcon,
   UploadFile as UploadFileIcon,
@@ -73,19 +65,7 @@ import {
   YAxis,
 } from 'recharts';
 import adminService from '../../services/adminService';
-
-const tabs = [
-  { key: 'dashboard', label: 'Dashboard', icon: <DashboardIcon fontSize="small" /> },
-  { key: 'universities', label: 'Universities', icon: <SchoolIcon fontSize="small" /> },
-  { key: 'users', label: 'Users', icon: <PeopleIcon fontSize="small" /> },
-  { key: 'counselors', label: 'Counselors', icon: <PersonAddIcon fontSize="small" /> },
-  { key: 'models', label: 'Models', icon: <ModelIcon fontSize="small" /> },
-  { key: 'resources', label: 'Resources', icon: <LibraryBooksIcon fontSize="small" /> },
-  { key: 'analytics', label: 'Analytics', icon: <AnalyticsIcon fontSize="small" /> },
-  { key: 'reports', label: 'Reports', icon: <AssessmentIcon fontSize="small" /> },
-  { key: 'audit', label: 'Audit Logs', icon: <AuditIcon fontSize="small" /> },
-  { key: 'settings', label: 'Settings', icon: <SettingsIcon fontSize="small" /> },
-];
+import { Sidebar } from '../../components/layout/Sidebar';
 
 const riskColors = ['#1565c0', '#2e7d32', '#ed6c02', '#c62828', '#6a1b9a'];
 const fmt = (value) => (value || value === 0 ? value : 'N/A');
@@ -332,49 +312,62 @@ const AdminPortal = () => {
 
   if (loading) {
     return (
-      <Box sx={{ minHeight: '80vh', display: 'grid', placeItems: 'center' }}>
-        <CircularProgress />
-      </Box>
+      <div className="student-shell">
+        <Sidebar
+          variant="admin"
+          activeKey={activeTab}
+          onItemSelect={(item) => setActiveTab(item.key)}
+        />
+        <main className="student-main">
+          <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', bgcolor: '#f6f8fb', pt: { xs: 6, lg: 0 } }}>
+            <CircularProgress />
+          </Box>
+        </main>
+      </div>
     );
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f6f8fb' }}>
-      <Box sx={{ px: { xs: 2, md: 3 }, py: 2, bgcolor: '#ffffff', borderBottom: '1px solid #dfe5ee', position: 'sticky', top: 0, zIndex: 5 }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between" gap={2}>
-          <Box>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: '#1d2733' }}>Administration Portal</Typography>
-            <Typography variant="body2" color="text.secondary">Platform governance and institutional management</Typography>
+    <div className="student-shell">
+      <Sidebar
+        variant="admin"
+        activeKey={activeTab}
+        onItemSelect={(item) => setActiveTab(item.key)}
+      />
+      <main className="student-main">
+        <Box sx={{ minHeight: '100vh', bgcolor: '#f6f8fb', pt: { xs: 6, lg: 0 } }}>
+          <Box sx={{ px: { xs: 2, md: 3 }, py: 2, bgcolor: '#ffffff', borderBottom: '1px solid #dfe5ee', position: 'sticky', top: 0, zIndex: 5 }}>
+            <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between" gap={2}>
+              <Box>
+                <Typography variant="h5" sx={{ fontWeight: 800, color: '#1d2733' }}>Administration Portal</Typography>
+                <Typography variant="body2" color="text.secondary">Platform governance and institutional management</Typography>
+              </Box>
+              <Stack direction="row" gap={1} justifyContent="flex-end">
+                <Tooltip title="Refresh portal data">
+                  <IconButton onClick={loadData}><RefreshIcon /></IconButton>
+                </Tooltip>
+              </Stack>
+            </Stack>
           </Box>
-          <Stack direction="row" gap={1} justifyContent="flex-end">
-            <Tooltip title="Refresh portal data">
-              <IconButton onClick={loadData}><RefreshIcon /></IconButton>
-            </Tooltip>
-          </Stack>
-        </Stack>
-        <Tabs value={activeTab} onChange={(_, value) => setActiveTab(value)} variant="scrollable" scrollButtons="auto" sx={{ mt: 2, minHeight: 40 }}>
-          {tabs.map((item) => (
-            <Tab key={item.key} value={item.key} icon={item.icon} iconPosition="start" label={item.label} sx={{ minHeight: 40 }} />
-          ))}
-        </Tabs>
-      </Box>
 
-      <Box sx={{ p: { xs: 2, md: 3 } }}>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        {activeTab === 'dashboard' && <DashboardView dashboard={data.dashboard} audit={data.audit} />}
-        {activeTab === 'universities' && <UniversitiesView universities={data.universities} onCreate={() => openCreate('university')} onEdit={openEditUniversity} onDeactivate={(id) => runAction(() => adminService.deactivateUniversity(id))} />}
-        {activeTab === 'users' && <UsersView users={visibleUsers} counselors={data.counselors} search={search} setSearch={setSearch} onCreate={() => openCreate('user')} onAction={runAction} />}
-        {activeTab === 'counselors' && <CounselorsView counselors={data.counselors} onCreate={() => openCreate('counselor')} onEdit={openEditCounselor} onAction={runAction} />}
-        {activeTab === 'models' && <ModelsView models={data.models} runtimeStatus={data.runtimeStatus} onAction={runAction} />}
-        {activeTab === 'resources' && <ResourcesView resources={data.resources} onCreate={() => openCreate('resource')} onEdit={openEditResource} onAction={runAction} />}
-        {activeTab === 'analytics' && <AnalyticsView statistics={data.statistics} />}
-        {activeTab === 'reports' && <ReportsView reports={data.reports} reportTypes={data.reportTypes} onCreate={() => openCreate('report')} onAction={runAction} />}
-        {activeTab === 'audit' && <AuditView audit={data.audit} onAction={runAction} />}
-        {activeTab === 'settings' && <SettingsView settings={data.settings} onAction={runAction} />}
-      </Box>
+          <Box sx={{ p: { xs: 2, md: 3 } }}>
+            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+            {activeTab === 'dashboard' && <DashboardView dashboard={data.dashboard} audit={data.audit} />}
+            {activeTab === 'universities' && <UniversitiesView universities={data.universities} onCreate={() => openCreate('university')} onEdit={openEditUniversity} onDeactivate={(id) => runAction(() => adminService.deactivateUniversity(id))} />}
+            {activeTab === 'users' && <UsersView users={visibleUsers} counselors={data.counselors} search={search} setSearch={setSearch} onCreate={() => openCreate('user')} onAction={runAction} />}
+            {activeTab === 'counselors' && <CounselorsView counselors={data.counselors} onCreate={() => openCreate('counselor')} onEdit={openEditCounselor} onAction={runAction} />}
+            {activeTab === 'models' && <ModelsView models={data.models} runtimeStatus={data.runtimeStatus} onAction={runAction} />}
+            {activeTab === 'resources' && <ResourcesView resources={data.resources} onCreate={() => openCreate('resource')} onEdit={openEditResource} onAction={runAction} />}
+            {activeTab === 'analytics' && <AnalyticsView statistics={data.statistics} />}
+            {activeTab === 'reports' && <ReportsView reports={data.reports} reportTypes={data.reportTypes} onCreate={() => openCreate('report')} onAction={runAction} />}
+            {activeTab === 'audit' && <AuditView audit={data.audit} onAction={runAction} />}
+            {activeTab === 'settings' && <SettingsView settings={data.settings} onAction={runAction} />}
+          </Box>
 
-      <AdminDialog dialog={dialog} editing={editing} form={form} setForm={setForm} universities={data.universities} reportTypes={data.reportTypes} onClose={() => { setDialog(null); setEditing(null); }} onSubmit={submitDialog} />
-    </Box>
+          <AdminDialog dialog={dialog} editing={editing} form={form} setForm={setForm} universities={data.universities} reportTypes={data.reportTypes} onClose={() => { setDialog(null); setEditing(null); }} onSubmit={submitDialog} />
+        </Box>
+      </main>
+    </div>
   );
 };
 

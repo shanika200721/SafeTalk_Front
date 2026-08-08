@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   Box,
   TextField,
@@ -11,6 +11,7 @@ import {
   CircularProgress,
   Alert,
   IconButton,
+  InputAdornment,
   Tooltip,
   Badge,
   Chip,
@@ -30,13 +31,12 @@ import {
   ArrowBack as ArrowBackIcon,
   Refresh as RefreshIcon,
   Close as CloseIcon,
-  Call as CallIcon,
-  Videocam as VideoCallIcon,
   Mic as MicIcon,
   AttachFile as AttachFileIcon,
   MoreVert as MoreVertIcon,
   AccountCircle as AccountCircleIcon,
   Menu as MenuIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -44,6 +44,7 @@ import api from '../services/api';
 import counselorService from '../services/counselorService';
 import VideoBackground from '../components/common/VideoBackground';
 import AuthenticatedAudio from '../components/common/AuthenticatedAudio';
+import { Sidebar } from '../components/layout/Sidebar';
 
 const SRI_LANKA_TIME_ZONE = 'Asia/Colombo';
 
@@ -89,6 +90,7 @@ const CounselorChat = () => {
   const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState('');
   const [studentInfo, setStudentInfo] = useState(null);
+  const [conversationSearch, setConversationSearch] = useState('');
   
   // UI state
   const [loading, setLoading] = useState(true);
@@ -333,14 +335,15 @@ const CounselorChat = () => {
       .toUpperCase() || 'S';
   };
 
-  // Call handlers
-  const handleVoiceCall = () => {
-    alert(`Initiating voice call with ${studentInfo?.full_name}...`);
-  };
-
-  const handleVideoCall = () => {
-    alert(`Initiating video call with ${studentInfo?.full_name}...`);
-  };
+  const filteredConversations = useMemo(() => {
+    const needle = conversationSearch.trim().toLowerCase();
+    if (!needle) return conversations;
+    return conversations.filter((conversation) =>
+      [conversation.full_name, conversation.name, conversation.email]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(needle)),
+    );
+  }, [conversationSearch, conversations]);
 
   // Voice message handlers
   const handleStartVoiceMessage = async () => {
@@ -491,29 +494,37 @@ const CounselorChat = () => {
 
   if (loading) {
     return (
-      <VideoBackground overlay={true}>
-        <Box sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '80vh'
-        }}>
-          <Box sx={{ textAlign: 'center', color: 'white' }}>
-            <CircularProgress sx={{ mb: 2, color: 'white' }} />
-            <Typography>Loading conversations...</Typography>
-          </Box>
-        </Box>
-      </VideoBackground>
+      <div className="student-shell">
+        <Sidebar variant="counselor" />
+        <main className="student-main">
+          <VideoBackground overlay={true}>
+            <Box sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              height: '80vh'
+            }}>
+              <Box sx={{ textAlign: 'center', color: 'white' }}>
+                <CircularProgress sx={{ mb: 2, color: 'white' }} />
+                <Typography>Loading conversations...</Typography>
+              </Box>
+            </Box>
+          </VideoBackground>
+        </main>
+      </div>
     );
   }
 
   return (
-    <VideoBackground overlay={true}>
-      <Box sx={{
-        display: 'flex',
-        height: '100vh',
-        flexDirection: 'column'
-      }}>
+    <div className="student-shell">
+      <Sidebar variant="counselor" />
+      <main className="student-main">
+        <VideoBackground overlay={true}>
+          <Box sx={{
+            display: 'flex',
+            height: '100vh',
+            flexDirection: 'column'
+          }}>
         {/* Header */}
         <Box sx={{
           p: 2,
@@ -545,15 +556,37 @@ const CounselorChat = () => {
               💬 Student Support Chat
             </Typography>
           </Box>
-          <Tooltip title="Refresh">
-            <IconButton 
-              color="inherit"
-              onClick={() => loadData(false)}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
+            <TextField
               size="small"
-            >
-              <RefreshIcon />
-            </IconButton>
-          </Tooltip>
+              value={conversationSearch}
+              onChange={(event) => setConversationSearch(event.target.value)}
+              placeholder="Search students"
+              sx={{
+                width: { xs: '100%', sm: 260 },
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: 'rgba(255,255,255,0.94)',
+                  borderRadius: 2,
+                },
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Tooltip title="Refresh">
+              <IconButton
+                color="inherit"
+                onClick={() => loadData(false)}
+                size="small"
+              >
+                <RefreshIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
 
         {/* Error Alert */}
@@ -592,26 +625,28 @@ const CounselorChat = () => {
               borderBottom: '1px solid #e0e0e0'
             }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#666' }}>
-                👥 Student Conversations ({conversations.length})
+                👥 Student Conversations ({filteredConversations.length})
               </Typography>
             </Box>
 
-            {conversations.length === 0 ? (
+            {filteredConversations.length === 0 ? (
               <Box sx={{
                 p: 3,
                 textAlign: 'center',
                 color: '#999'
               }}>
                 <Typography variant="body2" sx={{ fontWeight: 700, color: '#475569' }}>
-                  No student chats yet
+                  {conversationSearch.trim() ? 'No matching students' : 'No student chats yet'}
                 </Typography>
                 <Typography variant="caption" sx={{ display: 'block', mt: 0.75, color: '#64748b' }}>
-                  Assigned students and new messages will appear here.
+                  {conversationSearch.trim()
+                    ? 'Try another name or email.'
+                    : 'Assigned students and new messages will appear here.'}
                 </Typography>
               </Box>
             ) : (
               <List sx={{ p: 0 }}>
-                {conversations.map((conv) => (
+                {filteredConversations.map((conv) => (
                   <ListItemButton
                     key={`conv-${conv.id}`}
                     selected={getChatStudentId(selectedStudent) === getChatStudentId(conv)}
@@ -723,26 +758,6 @@ const CounselorChat = () => {
                   
                   {/* Action Buttons */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Tooltip title="Voice Call">
-                      <IconButton 
-                        size="small"
-                        onClick={() => handleVoiceCall()}
-                        sx={{ color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}
-                      >
-                        <CallIcon sx={{ fontSize: '1.3rem' }} />
-                      </IconButton>
-                    </Tooltip>
-                    
-                    <Tooltip title="Video Call">
-                      <IconButton 
-                        size="small"
-                        onClick={() => handleVideoCall()}
-                        sx={{ color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}
-                      >
-                        <VideoCallIcon sx={{ fontSize: '1.3rem' }} />
-                      </IconButton>
-                    </Tooltip>
-                    
                     <Tooltip title="More Options">
                       <IconButton 
                         size="small"
@@ -1089,8 +1104,10 @@ const CounselorChat = () => {
             )}
           </Box>
         </Box>
-      </Box>
-    </VideoBackground>
+          </Box>
+        </VideoBackground>
+      </main>
+    </div>
   );
 };
 
