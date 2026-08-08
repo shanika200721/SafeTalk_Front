@@ -34,11 +34,11 @@ import { Sidebar } from '../components/layout/Sidebar';
 import { EmergencySOS } from '../components/common/EmergencySOS';
 
 const moodOptions = [
-  { value: 1, label: 'Very Bad', helper: 'Heavy day' },
-  { value: 2, label: 'Bad', helper: 'Struggling' },
-  { value: 3, label: 'Neutral', helper: 'Steady' },
-  { value: 4, label: 'Good', helper: 'Doing okay' },
-  { value: 5, label: 'Great', helper: 'Energized' },
+  { value: 1, emoji: '😢', label: 'Very Bad', helper: 'Heavy day' },
+  { value: 2, emoji: '😟', label: 'Bad', helper: 'Struggling' },
+  { value: 3, emoji: '😐', label: 'Neutral', helper: 'Steady' },
+  { value: 4, emoji: '🙂', label: 'Good', helper: 'Doing okay' },
+  { value: 5, emoji: '😄', label: 'Great', helper: 'Energized' },
 ];
 
 const socialOptions = ['None', 'Limited', 'Moderate', 'Good'];
@@ -354,8 +354,11 @@ const DailyCheckin = () => {
               <Typography className="student-checkin-card-label">
                 Your Mood
               </Typography>
-              <Typography className="student-checkin-mood-score">
-                {todayCheckin.mood}/5
+              <Typography
+                className="student-checkin-mood-score"
+                aria-label={`Mood: ${completedMood?.label || 'Not recorded'}`}
+              >
+                {completedMood?.emoji || '-'}
               </Typography>
               <Typography className="student-checkin-mood-label">
                 {completedMood?.label || 'Not recorded'}
@@ -496,7 +499,12 @@ const DailyCheckin = () => {
                     formData.mood === option.value ? 'student-checkin-mood-active' : ''
                   }`}
                 >
-                  <span className="student-checkin-mood-number">{option.value}</span>
+                  <span
+                    className="student-checkin-mood-emoji"
+                    aria-hidden="true"
+                  >
+                    {option.emoji}
+                  </span>
                   <span className="student-checkin-mood-name">{option.label}</span>
                   <span className="student-checkin-mood-helper">{option.helper}</span>
                 </button>

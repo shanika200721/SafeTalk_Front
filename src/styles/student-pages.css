@@ -2083,17 +2083,17 @@
   box-shadow: inset 0 0 0 2px rgba(13, 148, 136, 0.12);
 }
 
-.student-checkin-mood-number {
-  width: 2.45rem;
-  height: 2.45rem;
+.student-checkin-mood-emoji {
+  width: 3rem;
+  height: 3rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: #0d9488;
-  color: #ffffff;
-  font-size: 1.25rem;
-  font-weight: 900;
+  background: #ccfbf1;
+  font-size: 1.75rem;
+  line-height: 1;
+  box-shadow: inset 0 0 0 1px rgba(13, 148, 136, 0.16);
 }
 
 .student-checkin-mood-name {
@@ -2213,7 +2213,7 @@
 .student-checkin-mood-score.MuiTypography-root {
   margin-top: 0.45rem;
   color: #0d9488;
-  font-size: clamp(2.4rem, 5vw, 3.5rem);
+  font-size: 3.5rem;
   line-height: 1;
   font-weight: 900;
 }
