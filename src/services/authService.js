@@ -9,7 +9,12 @@ import {
   storeAuthSession,
 } from './api';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const localApiBaseUrl =
+  typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname)
+    ? `http://${window.location.hostname}:8001`
+    : 'http://localhost:8000';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || localApiBaseUrl;
 
 // Create axios instance with base URL
 const apiClient = axios.create({

@@ -46,6 +46,21 @@ const StudentRegister = () => {
     e.preventDefault();
     setError('');
 
+    const firstName = formData.firstName.trim();
+    const lastName = formData.lastName.trim();
+    const email = formData.email.trim();
+    const username = formData.username.trim();
+
+    if (!firstName || !lastName || !email || !username || !formData.password || !formData.confirmPassword) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -55,10 +70,10 @@ const StudentRegister = () => {
 
     try {
       const result = await register({
-        email: formData.email,
-        username: formData.username,
+        email,
+        username,
         password: formData.password,
-        full_name: `${formData.firstName} ${formData.lastName}`,
+        full_name: `${firstName} ${lastName}`,
         role: 'student',
       });
 
@@ -68,7 +83,12 @@ const StudentRegister = () => {
           navigate('/terms');
         }, 1500);
       } else {
-        setError(result.error || 'Registration failed');
+        const message = result.error || 'Registration failed';
+        setError(
+          message === 'Network Error'
+            ? 'Registration could not be completed. If this email or username was used before, please try a different one.'
+            : message
+        );
       }
     } catch {
       setError('An unexpected error occurred');

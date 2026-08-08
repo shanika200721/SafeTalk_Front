@@ -1,25 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  Checkbox,
-  Container,
-  Divider,
-  Fade,
-  FormControlLabel,
-  List,
-  ListItem,
-  ListItemText,
-  Paper,
-  Typography,
-} from '@mui/material';
-import ArrowForward from '@mui/icons-material/ArrowForward';
-import Psychology from '@mui/icons-material/Psychology';
 import { useNavigate } from 'react-router-dom';
-import VideoBackground from '../components/common/VideoBackground';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
+import FactCheckIcon from '@mui/icons-material/FactCheck';
+import EmergencyIcon from '@mui/icons-material/Emergency';
+import LockIcon from '@mui/icons-material/Lock';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import welcomeGirl from '../assets/welcome-girl.webp';
+import './TermsOfService.css';
 
 const consentOptions = [
   ['profile_processing', 'Profile processing', 'Legacy combined profile consent retained for existing records.'],
@@ -35,6 +27,14 @@ const consentOptions = [
   ['behavioral_processing', 'Behavioral data processing', 'Optional and not pre-granted.'],
   ['counselor_escalation', 'Counselor escalation', 'Allows risk-related information to be surfaced for counselor review.'],
   ['research_data_use', 'Research data use', 'Optional research use. Withdrawal does not delete historical records in this phase.'],
+];
+
+const acknowledgementOptions = [
+  ['notEmergency', 'I understand this is not an emergency service.'],
+  ['responsibleUse', 'I agree to use this service responsibly and provide accurate information.'],
+  ['aiLimitations', 'I understand AI outputs are support signals and do not replace professional care.'],
+  ['readTerms', 'I have read and understand these terms.'],
+  ['ageConsent', 'I am 18 years or older, or I have appropriate guardian consent if required.'],
 ];
 
 const TermsOfService = () => {
@@ -122,128 +122,141 @@ const TermsOfService = () => {
   };
 
   return (
-    <VideoBackground overlay={true}>
-      <Container maxWidth="md">
-        <Fade in={true} timeout={1000}>
-          <Box
-            sx={{
-              minHeight: '100vh',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              py: 4,
-            }}
-          >
-            <Paper
-              elevation={24}
-              sx={{
-                p: { xs: 3, md: 5 },
-                background: 'rgba(255, 255, 255, 0.98)',
-                backdropFilter: 'blur(10px)',
-                borderRadius: 4,
-                maxHeight: '82vh',
-                overflow: 'auto',
-              }}
+    <main className="terms-page" aria-label="SafeTalk terms and consent page">
+      <section className="terms-shell">
+        <aside className="terms-story-panel" aria-label="Terms overview">
+          <div className="terms-brand">
+            <span className="terms-brand-mark" aria-hidden="true">
+              <FavoriteBorderIcon />
+            </span>
+            <span>
+              <strong>SafeTalk</strong>
+              <small>Mental Health Support</small>
+            </span>
+          </div>
+
+          <div className="terms-story-copy">
+            <h1>
+              <span>Your Consent</span>
+              Matters
+            </h1>
+            <p>
+              Review how SafeTalk supports you, what it cannot replace, and how
+              your wellbeing data may be processed.
+            </p>
+          </div>
+
+          <div className="terms-story-highlights">
+            <article>
+              <EmergencyIcon aria-hidden="true" />
+              <span>
+                <strong>Not emergency care</strong>
+                <small>Use emergency services if you are in immediate danger.</small>
+              </span>
+            </article>
+            <article>
+              <LockIcon aria-hidden="true" />
+              <span>
+                <strong>Consent controlled</strong>
+                <small>Your choices guide future data processing.</small>
+              </span>
+            </article>
+          </div>
+
+          <div className="terms-illustration" aria-hidden="true">
+            <img src={welcomeGirl} alt="" />
+          </div>
+        </aside>
+
+        <section className="terms-panel" aria-label="Terms and consent form">
+          <div className="terms-card">
+            <header className="terms-header">
+              <div className="terms-form-icon" aria-hidden="true">
+                <PsychologyIcon />
+              </div>
+              <div>
+                <p className="terms-eyebrow">Policy version {policyVersion}</p>
+                <h2>Terms and Consent</h2>
+              </div>
+            </header>
+
+            <div className="terms-notice info">
+              This app is a support and screening tool, not an emergency
+              service. Consent choices control future processing and do not
+              delete historical records in Phase 4B.
+            </div>
+
+            <div className="terms-scroll-panel">
+              <section className="terms-section">
+                <div className="terms-section-heading">
+                  <FactCheckIcon aria-hidden="true" />
+                  <div>
+                    <h3>Required Acknowledgements</h3>
+                    <p>All acknowledgements are required before continuing.</p>
+                  </div>
+                </div>
+
+                <div className="terms-check-list">
+                  {acknowledgementOptions.map(([name, label]) => (
+                    <label className="terms-check-item" key={name}>
+                      <input
+                        type="checkbox"
+                        checked={acknowledgements[name]}
+                        onChange={() => toggleAcknowledgement(name)}
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </section>
+
+              <section className="terms-section">
+                <div className="terms-section-heading">
+                  <ShieldOutlinedIcon aria-hidden="true" />
+                  <div>
+                    <h3>Consent Choices</h3>
+                    <p>Choose which future processing permissions you grant.</p>
+                  </div>
+                </div>
+
+                <div className="terms-consent-grid">
+                  {consentOptions.map(([type, label, description]) => (
+                    <label className="terms-consent-card" key={type}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(consents[type])}
+                        onChange={() => toggleConsent(type)}
+                      />
+                      <span>
+                        <strong>{label}</strong>
+                        <small>{description}</small>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            {error && (
+              <div className="terms-notice error" role="alert">
+                {error}
+              </div>
+            )}
+
+            <button
+              className="terms-submit-button"
+              type="button"
+              onClick={handleContinue}
+              disabled={loading}
             >
-              <Box sx={{ textAlign: 'center', mb: 4 }}>
-                <Psychology sx={{ fontSize: 50, color: '#4A90E2' }} />
-                <Typography variant="h4" sx={{ fontWeight: 700, color: '#4A90E2', mt: 1 }}>
-                  SAFE TALK
-                </Typography>
-                <Typography variant="h6" sx={{ fontWeight: 500, mt: 2 }}>
-                  Terms and Consent
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  Policy version {policyVersion}
-                </Typography>
-              </Box>
-
-              <Alert severity="info" sx={{ mb: 3 }}>
-                This app is a support and screening tool, not an emergency service. Consent
-                choices control future processing and do not delete historical records in Phase 4B.
-              </Alert>
-
-              <Typography variant="h6" gutterBottom>
-                Required Acknowledgements
-              </Typography>
-              <List>
-                <ListItem>
-                  <FormControlLabel
-                    control={<Checkbox checked={acknowledgements.notEmergency} onChange={() => toggleAcknowledgement('notEmergency')} />}
-                    label="I understand this is not an emergency service."
-                  />
-                </ListItem>
-                <ListItem>
-                  <FormControlLabel
-                    control={<Checkbox checked={acknowledgements.responsibleUse} onChange={() => toggleAcknowledgement('responsibleUse')} />}
-                    label="I agree to use this service responsibly and provide accurate information."
-                  />
-                </ListItem>
-                <ListItem>
-                  <FormControlLabel
-                    control={<Checkbox checked={acknowledgements.aiLimitations} onChange={() => toggleAcknowledgement('aiLimitations')} />}
-                    label="I understand AI outputs are support signals and do not replace professional care."
-                  />
-                </ListItem>
-                <ListItem>
-                  <FormControlLabel
-                    control={<Checkbox checked={acknowledgements.readTerms} onChange={() => toggleAcknowledgement('readTerms')} />}
-                    label="I have read and understand these terms."
-                  />
-                </ListItem>
-                <ListItem>
-                  <FormControlLabel
-                    control={<Checkbox checked={acknowledgements.ageConsent} onChange={() => toggleAcknowledgement('ageConsent')} />}
-                    label="I am 18 years or older, or I have appropriate guardian consent if required."
-                  />
-                </ListItem>
-              </List>
-
-              <Divider sx={{ my: 3 }} />
-
-              <Typography variant="h6" gutterBottom>
-                Consent Choices
-              </Typography>
-              <List>
-                {consentOptions.map(([type, label, description]) => (
-                  <ListItem key={type} alignItems="flex-start">
-                    <FormControlLabel
-                      control={<Checkbox checked={Boolean(consents[type])} onChange={() => toggleConsent(type)} />}
-                      label={
-                        <ListItemText
-                          primary={label}
-                          secondary={description}
-                          primaryTypographyProps={{ sx: { fontWeight: 600 } }}
-                        />
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
-
-              {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
-
-              <Button
-                fullWidth
-                variant="contained"
-                size="large"
-                endIcon={<ArrowForward />}
-                onClick={handleContinue}
-                disabled={loading}
-                sx={{
-                  mt: 3,
-                  py: 1.5,
-                  background: 'linear-gradient(135deg, #4A90E2 0%, #50E3C2 100%)',
-                  fontSize: '1.1rem',
-                }}
-              >
-                {loading ? 'Saving...' : 'Continue'}
-              </Button>
-            </Paper>
-          </Box>
-        </Fade>
-      </Container>
-    </VideoBackground>
+              <CheckCircleIcon />
+              {loading ? 'Saving...' : 'Continue'}
+              <ArrowForwardIcon className="terms-submit-arrow" />
+            </button>
+          </div>
+        </section>
+      </section>
+    </main>
   );
 };
 

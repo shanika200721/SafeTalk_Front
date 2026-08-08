@@ -11,6 +11,33 @@ import {
 const AuthContext = createContext();
 const COUNSELOR_ROLES = new Set(['counselor', 'psychiatrist']);
 
+const getApiErrorMessage = (err, fallback) => {
+  const data = err.response?.data;
+  const candidates = [
+    data?.error?.message,
+    data?.message,
+    data?.detail,
+    data?.error,
+    err.message,
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (typeof candidate === 'string') return candidate;
+    if (Array.isArray(candidate)) {
+      const messages = candidate
+        .map((item) => item?.msg || item?.message || item)
+        .filter(Boolean);
+      if (messages.length) return messages.join(' ');
+    }
+    if (typeof candidate === 'object' && typeof candidate.message === 'string') {
+      return candidate.message;
+    }
+  }
+
+  return fallback;
+};
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -87,7 +114,7 @@ export const AuthProvider = ({ children }) => {
       storeSession(data.access_token, nextUser);
       return { success: true, user: nextUser };
     } catch (err) {
-      const message = err.response?.data?.error || err.response?.data?.detail || err.message || 'Login failed';
+      const message = getApiErrorMessage(err, 'Login failed');
       setError(message);
       return { success: false, error: message };
     }
@@ -107,7 +134,10 @@ export const AuthProvider = ({ children }) => {
       }
       return { success: true, user: loginResult.user };
     } catch (err) {
-      const message = err.response?.data?.error || err.response?.data?.detail || err.message || 'Registration failed';
+      const parsedMessage = getApiErrorMessage(err, 'Registration failed');
+      const message = parsedMessage === 'Network Error'
+        ? 'Registration could not be completed. If this email or username was used before, please try a different one.'
+        : parsedMessage;
       setError(message);
       return { success: false, error: message };
     }
