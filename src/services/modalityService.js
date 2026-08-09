@@ -49,3 +49,8 @@ export const predictBehavioral = async (payload = {}) => {
   const response = await api.post('/api/modalities/behavioral/predict', payload);
   return response.data;
 };
+
+export const recordBehavioralTelemetry = async (payload = {}) => {
+  const response = await api.post('/api/modalities/behavioral/telemetry', payload);
+  return response.data;
+};
