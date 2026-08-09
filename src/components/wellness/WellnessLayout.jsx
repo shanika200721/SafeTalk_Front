@@ -2,7 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeftIcon } from 'lucide-react';
 import { Sidebar } from '../layout/Sidebar';
-import { EmergencySOS } from '../common/EmergencySOS';
 
 export const WellnessLayout = ({ title, eyebrow, description, action, children }) => (
   <div className="student-shell wellness-theme">
@@ -22,7 +21,6 @@ export const WellnessLayout = ({ title, eyebrow, description, action, children }
           {action && <div className="wellness-hero-action">{action}</div>}
         </section>
         {children}
-        <EmergencySOS />
       </div>
     </main>
   </div>

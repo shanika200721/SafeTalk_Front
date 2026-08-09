@@ -23,7 +23,6 @@ import {
 import {
   ArrowBack as ArrowBackIcon,
   AttachFile as AttachFileIcon,
-  Call as CallIcon,
   Close as CloseIcon,
   Delete as DeleteIcon,
   Menu as MenuIcon,
@@ -34,16 +33,22 @@ import {
   Refresh as RefreshIcon,
   Send as SendIcon,
   Stop as StopIcon,
-  Videocam as VideoCallIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { Sidebar } from '../components/layout/Sidebar';
-import { EmergencySOS } from '../components/common/EmergencySOS';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import AuthenticatedAudio from '../components/common/AuthenticatedAudio';
 
 const MAX_RECORDING_SECONDS = Number(import.meta.env.VITE_MAX_VOICE_RECORDING_SECONDS || 90);
+const SRI_LANKA_TIME_ZONE = 'Asia/Colombo';
+
+const parseServerDate = (timestamp) => {
+  if (!timestamp) return null;
+  const value = String(timestamp);
+  const hasTimezone = /(?:z|[+-]\d{2}:?\d{2})$/i.test(value);
+  return new Date(hasTimezone ? value : `${value}Z`);
+};
 
 const formatMessageText = (text) => {
   if (!text) return [];
@@ -283,12 +288,16 @@ const ChatSupport = () => {
     }
   };
 
-  const formatTime = (timestamp) =>
-    new Date(timestamp).toLocaleTimeString('en-US', {
+  const formatTime = (timestamp) => {
+    const date = parseServerDate(timestamp);
+    if (!date || Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('en-LK', {
+      timeZone: SRI_LANKA_TIME_ZONE,
       hour: '2-digit',
       minute: '2-digit',
       hour12: true,
-    });
+    }).format(date);
+  };
 
   const getInitials = (name) =>
     name
@@ -299,16 +308,6 @@ const ChatSupport = () => {
 
   const handleCloseMenu = () => {
     setMenuAnchor(null);
-  };
-
-  const handleVoiceCall = () => {
-    alert(`Initiating voice call with ${counselorInfo?.full_name}...`);
-    handleCloseMenu();
-  };
-
-  const handleVideoCall = () => {
-    alert(`Initiating video call with ${counselorInfo?.full_name}...`);
-    handleCloseMenu();
   };
 
   const handleStartVoiceMessage = async () => {
@@ -453,7 +452,18 @@ const ChatSupport = () => {
             : message
         )
       );
-      setVoiceState(analyzeVoiceTone ? 'analysis_unavailable' : 'sent');
+      const analysisStatus = response.data?.ai_analysis_status;
+      setVoiceState(
+        !analyzeVoiceTone
+          ? 'sent'
+          : analysisStatus === 'succeeded'
+            ? 'analysis_succeeded'
+            : analysisStatus === 'pending'
+              ? 'analysis_pending'
+              : analysisStatus === 'failed'
+                ? 'analysis_failed'
+                : 'analysis_unavailable'
+      );
       await loadData(false);
       setRecordedVoice(null);
       setPreviewPlaying(false);
@@ -526,7 +536,6 @@ const ChatSupport = () => {
       <main className="student-main">
         <div className="student-page student-chat-page">
           {content}
-          <EmergencySOS />
         </div>
       </main>
     </div>
@@ -797,28 +806,6 @@ const ChatSupport = () => {
             )}
 
             <div className="student-chat-tools">
-              <Tooltip title="Voice Call">
-                <span>
-                  <IconButton
-                    onClick={handleVoiceCall}
-                    disabled={!counselorInfo}
-                    className="student-chat-tool-btn"
-                  >
-                    <CallIcon />
-                  </IconButton>
-                </span>
-              </Tooltip>
-              <Tooltip title="Video Call">
-                <span>
-                  <IconButton
-                    onClick={handleVideoCall}
-                    disabled={!counselorInfo}
-                    className="student-chat-tool-btn"
-                  >
-                    <VideoCallIcon />
-                  </IconButton>
-                </span>
-              </Tooltip>
               <Tooltip title="More Options">
                 <span>
                   <IconButton
@@ -910,7 +897,7 @@ const ChatSupport = () => {
             )}
 
             <Alert severity="info" sx={{ mb: 1 }}>
-              When enabled, this voice message may be analyzed for emotional tone and used as optional supporting screening evidence. The result is not a diagnosis.
+              Emotional-tone analysis provides supporting research evidence only and is not a diagnosis.
             </Alert>
 
             <FormControlLabel

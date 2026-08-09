@@ -95,6 +95,15 @@
   transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 
+.student-sidebar-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
 .student-sidebar-link::before {
   content: '';
   position: absolute;
