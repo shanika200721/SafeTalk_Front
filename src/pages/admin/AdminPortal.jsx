@@ -70,6 +70,7 @@ import { Sidebar } from '../../components/layout/Sidebar';
 const riskColors = ['#1565c0', '#2e7d32', '#ed6c02', '#c62828', '#6a1b9a'];
 const fmt = (value) => (value || value === 0 ? value : 'N/A');
 const dateFmt = (value) => (value ? new Date(value).toLocaleString() : 'N/A');
+const readableStatus = (value) => String(value || 'unknown').replaceAll('_', ' ');
 
 const emptyForms = {
   user: { username: '', email: '', password: 'Password123!', full_name: '', role: 'student', university_id: '' },
@@ -515,20 +516,28 @@ const ModelsView = ({ models, runtimeStatus, onAction }) => (
   <Stack gap={2}>
     <Paper sx={{ p: 2, borderRadius: 1.5 }}>
       <ToolbarTitle title="Runtime Health" />
-      <CompactTable headers={['Modality', 'Health', 'Active', 'Artifact', 'Hash', 'Loader', 'Preprocessing', 'Smoke Test', 'Last Inference', 'Fusion', 'Reason']}>
+      <CompactTable headers={['Modality', 'Technical Runtime', 'Research Reliability', 'Fusion Eligibility', 'Artifact', 'Hash', 'Loader', 'Preprocessing', 'Smoke Test', 'Last Inference', 'Reason']}>
         {(runtimeStatus || []).map((item) => (
           <TableRow key={item.modality} hover>
             <TableCell>{item.modality}</TableCell>
-            <TableCell><StatusChip value={item.health_state} /></TableCell>
-            <TableCell>{item.active ? 'Yes' : 'No'}</TableCell>
+            <TableCell>
+              <Tooltip title={`Health: ${readableStatus(item.health_state)}. Active registry flag: ${item.active ? 'yes' : 'no'}.`}>
+                <span><StatusChip value={readableStatus(item.technical_status || item.health_state)} /></span>
+              </Tooltip>
+            </TableCell>
+            <TableCell>{readableStatus(item.research_reliability)}</TableCell>
+            <TableCell>
+              <Tooltip title="Fusion eligibility is governed by backend policy and cannot be manually overridden here.">
+                <span>{item.fusion_eligibility ? 'Eligible' : `Excluded - ${readableStatus(item.fusion_status)}`}</span>
+              </Tooltip>
+            </TableCell>
             <TableCell>{item.artifact_available ? 'Available' : 'Unavailable'}</TableCell>
             <TableCell>{item.hash_valid ? 'Valid' : 'Not valid'}</TableCell>
             <TableCell>{fmt(item.loader_status)}</TableCell>
             <TableCell>{fmt(item.preprocessing_status)}</TableCell>
             <TableCell>{fmt(item.smoke_test_status)}</TableCell>
             <TableCell>{dateFmt(item.last_successful_inference || item.last_failed_inference)}</TableCell>
-            <TableCell>{item.fusion_eligibility ? 'Eligible' : 'Excluded'}</TableCell>
-            <TableCell>{fmt(item.failure_reason)}</TableCell>
+            <TableCell>{readableStatus(item.failure_reason)}</TableCell>
           </TableRow>
         ))}
       </CompactTable>

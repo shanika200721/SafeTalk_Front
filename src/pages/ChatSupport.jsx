@@ -452,7 +452,18 @@ const ChatSupport = () => {
             : message
         )
       );
-      setVoiceState(analyzeVoiceTone ? 'analysis_unavailable' : 'sent');
+      const analysisStatus = response.data?.ai_analysis_status;
+      setVoiceState(
+        !analyzeVoiceTone
+          ? 'sent'
+          : analysisStatus === 'succeeded'
+            ? 'analysis_succeeded'
+            : analysisStatus === 'pending'
+              ? 'analysis_pending'
+              : analysisStatus === 'failed'
+                ? 'analysis_failed'
+                : 'analysis_unavailable'
+      );
       await loadData(false);
       setRecordedVoice(null);
       setPreviewPlaying(false);
@@ -886,7 +897,7 @@ const ChatSupport = () => {
             )}
 
             <Alert severity="info" sx={{ mb: 1 }}>
-              When enabled, this voice message may be analyzed for emotional tone and used as optional supporting screening evidence. The result is not a diagnosis.
+              Emotional-tone analysis provides supporting research evidence only and is not a diagnosis.
             </Alert>
 
             <FormControlLabel
