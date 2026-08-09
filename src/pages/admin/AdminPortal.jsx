@@ -73,7 +73,17 @@ const dateFmt = (value) => (value ? new Date(value).toLocaleString() : 'N/A');
 const readableStatus = (value) => String(value || 'unknown').replaceAll('_', ' ');
 
 const emptyForms = {
-  user: { username: '', email: '', password: 'Password123!', full_name: '', role: 'student', university_id: '' },
+  user: {
+    username: '',
+    email: '',
+    password: 'Password123!',
+    full_name: '',
+    role: 'student',
+    university_id: '',
+    department: '',
+    year_of_study: '',
+    status: 'active',
+  },
   university: { university_name: '', university_code: '', campus_name: '', district: '', counseling_unit_phone: '' },
   counselor: {
     username: '',
@@ -108,6 +118,32 @@ const cleanPayload = (payload) =>
   Object.fromEntries(
     Object.entries(payload).map(([key, value]) => [key, value === '' ? null : value]),
   );
+
+const cleanUniversityPayload = (payload) => ({
+  ...cleanPayload(payload),
+  university_name: payload.university_name.trim(),
+  university_code: payload.university_code.trim(),
+  campus_name: payload.campus_name.trim() || null,
+  district: payload.district.trim() || null,
+  counseling_unit_phone: payload.counseling_unit_phone.trim() || null,
+});
+
+const cleanUserPayload = (payload, editing) => {
+  const clean = cleanPayload({
+    ...payload,
+    full_name: payload.full_name.trim(),
+    email: payload.email.trim(),
+    username: payload.username.trim(),
+    university_id: payload.university_id || null,
+    department: payload.department.trim() || null,
+    year_of_study: payload.year_of_study === '' ? null : Number(payload.year_of_study),
+  });
+  if (editing) {
+    const { username: _username, password: _password, ...updates } = clean;
+    return updates;
+  }
+  return clean;
+};
 
 const counselorUserId = (counselor) => counselor.user_id || counselor.id;
 
@@ -211,10 +247,15 @@ const AdminPortal = () => {
     try {
       setError('');
       if (dialog === 'user') {
-        await adminService.createUser(cleanPayload(form.user));
+        const payload = cleanUserPayload(form.user, editing?.type === 'user');
+        if (editing?.type === 'user') {
+          await adminService.updateUser(editing.id, payload);
+        } else {
+          await adminService.createUser(payload);
+        }
       }
       if (dialog === 'university') {
-        const payload = cleanPayload(form.university);
+        const payload = cleanUniversityPayload(form.university);
         if (editing?.type === 'university') {
           const { university_code: _unused, ...updates } = payload;
           await adminService.updateUniversity(editing.id, updates);
@@ -280,6 +321,26 @@ const AdminPortal = () => {
     setEditing(null);
     setForm({ ...emptyForms });
     setDialog(type);
+  };
+
+  const openEditUser = (user) => {
+    setEditing({ type: 'user', id: user.id });
+    setForm({
+      ...emptyForms,
+      user: {
+        ...emptyForms.user,
+        username: user.username || '',
+        email: user.email || '',
+        password: '',
+        full_name: user.full_name || user.name || '',
+        role: user.role || 'student',
+        university_id: user.university_id || '',
+        department: user.department || '',
+        year_of_study: user.year_of_study || '',
+        status: user.status || 'active',
+      },
+    });
+    setDialog('user');
   };
 
   const openEditUniversity = (item) => {
@@ -410,7 +471,7 @@ const AdminPortal = () => {
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
             {activeTab === 'dashboard' && <DashboardView dashboard={data.dashboard} audit={data.audit} />}
             {activeTab === 'universities' && <UniversitiesView universities={data.universities} onCreate={() => openCreate('university')} onEdit={openEditUniversity} onDeactivate={(id) => runAction(() => adminService.deactivateUniversity(id))} />}
-            {activeTab === 'users' && <UsersView users={visibleUsers} counselors={data.counselors} search={search} setSearch={setSearch} onCreate={() => openCreate('user')} onAssign={openAssignProfessional} onAction={runAction} />}
+            {activeTab === 'users' && <UsersView users={visibleUsers} counselors={data.counselors} search={search} setSearch={setSearch} onCreate={() => openCreate('user')} onEdit={openEditUser} onAssign={openAssignProfessional} onAction={runAction} />}
             {activeTab === 'counselors' && <CounselorsView counselors={data.counselors} onCreate={() => openCreate('counselor')} onEdit={openEditCounselor} onTransfer={openTransferStudents} onAction={runAction} />}
             {activeTab === 'models' && <ModelsView models={data.models} runtimeStatus={data.runtimeStatus} onAction={runAction} />}
             {activeTab === 'resources' && <ResourcesView resources={data.resources} onCreate={() => openCreate('resource')} onEdit={openEditResource} onAction={runAction} />}
@@ -505,7 +566,7 @@ const UniversitiesView = ({ universities, onCreate, onEdit, onDeactivate }) => (
   </Paper>
 );
 
-const UsersView = ({ users, counselors, search, setSearch, onCreate, onAssign, onAction }) => (
+const UsersView = ({ users, counselors, search, setSearch, onCreate, onEdit, onAssign, onAction }) => (
   <Paper sx={{ p: 2, borderRadius: 1.5 }}>
     <ToolbarTitle title="User Management">
       <TextField size="small" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search" InputProps={{ startAdornment: <SearchIcon fontSize="small" sx={{ mr: 1 }} /> }} />
@@ -524,6 +585,7 @@ const UsersView = ({ users, counselors, search, setSearch, onCreate, onAssign, o
           <TableCell>{dateFmt(user.last_login)}</TableCell>
           <TableCell>{fmt(user.assigned_counselor)}</TableCell>
           <TableCell>
+            <Tooltip title="Edit user"><IconButton size="small" onClick={() => onEdit(user)}><EditIcon fontSize="small" /></IconButton></Tooltip>
             <Tooltip title="Activate"><IconButton size="small" onClick={() => onAction(() => adminService.updateUser(user.id, { status: 'active' }))}><CheckCircleIcon fontSize="small" /></IconButton></Tooltip>
             <Tooltip title="Suspend"><IconButton size="small" onClick={() => onAction(() => adminService.updateUser(user.id, { status: 'suspended' }))}><BlockIcon fontSize="small" /></IconButton></Tooltip>
             <Tooltip title="Reset password"><IconButton size="small" onClick={() => onAction(() => adminService.resetPassword(user.id))}><LockResetIcon fontSize="small" /></IconButton></Tooltip>
@@ -814,21 +876,50 @@ const AdminDialog = ({ dialog, editing, form, setForm, universities, counselors 
     <DialogContent sx={{ pt: 2 }}>
       {dialog === 'user' && (
         <Stack gap={2} sx={{ mt: 1 }}>
-          <TextField label="Full name" value={form.user.full_name} onChange={(event) => setForm({ ...form, user: { ...form.user, full_name: event.target.value } })} />
-          <TextField label="Username" value={form.user.username} onChange={(event) => setForm({ ...form, user: { ...form.user, username: event.target.value } })} />
-          <TextField label="Email" value={form.user.email} onChange={(event) => setForm({ ...form, user: { ...form.user, email: event.target.value } })} />
-          <TextField label="Password" type="password" value={form.user.password} onChange={(event) => setForm({ ...form, user: { ...form.user, password: event.target.value } })} />
+          <TextField label="Full name" required value={form.user.full_name} onChange={(event) => setForm({ ...form, user: { ...form.user, full_name: event.target.value } })} />
+          <TextField label="Username" required disabled={!!editing} value={form.user.username} onChange={(event) => setForm({ ...form, user: { ...form.user, username: event.target.value } })} />
+          <TextField label="Email" required type="email" value={form.user.email} onChange={(event) => setForm({ ...form, user: { ...form.user, email: event.target.value } })} />
+          {!editing && (
+            <TextField label="Password" required type="password" value={form.user.password} onChange={(event) => setForm({ ...form, user: { ...form.user, password: event.target.value } })} />
+          )}
           <FormControl><InputLabel>Role</InputLabel><Select label="Role" value={form.user.role} onChange={(event) => setForm({ ...form, user: { ...form.user, role: event.target.value } })}><MenuItem value="student">Student</MenuItem><MenuItem value="counselor">Counselor</MenuItem><MenuItem value="admin">Administrator</MenuItem></Select></FormControl>
           <FormControl><InputLabel>University</InputLabel><Select label="University" value={form.user.university_id} onChange={(event) => setForm({ ...form, user: { ...form.user, university_id: event.target.value } })}><MenuItem value="">None</MenuItem>{universities.map((uni) => <MenuItem key={uni.id} value={uni.id}>{uni.university}</MenuItem>)}</Select></FormControl>
+          <TextField label="Department" value={form.user.department} onChange={(event) => setForm({ ...form, user: { ...form.user, department: event.target.value } })} />
+          <TextField label="Year of study" type="number" value={form.user.year_of_study} onChange={(event) => setForm({ ...form, user: { ...form.user, year_of_study: event.target.value } })} />
+          {editing?.type === 'user' && (
+            <FormControl>
+              <InputLabel>Status</InputLabel>
+              <Select label="Status" value={form.user.status} onChange={(event) => setForm({ ...form, user: { ...form.user, status: event.target.value } })}>
+                <MenuItem value="active">Active</MenuItem>
+                <MenuItem value="inactive">Inactive</MenuItem>
+                <MenuItem value="suspended">Suspended</MenuItem>
+              </Select>
+            </FormControl>
+          )}
         </Stack>
       )}
       {dialog === 'university' && (
         <Stack gap={2} sx={{ mt: 1 }}>
-          <TextField label="University" value={form.university.university_name} onChange={(event) => setForm({ ...form, university: { ...form.university, university_name: event.target.value } })} />
-          <TextField label="Code" disabled={!!editing} value={form.university.university_code} onChange={(event) => setForm({ ...form, university: { ...form.university, university_code: event.target.value } })} />
+          <TextField
+            label="University"
+            required
+            error={!form.university.university_name.trim()}
+            helperText={!form.university.university_name.trim() ? 'University name is required' : ''}
+            value={form.university.university_name}
+            onChange={(event) => setForm({ ...form, university: { ...form.university, university_name: event.target.value } })}
+          />
+          <TextField
+            label="Code"
+            required
+            disabled={!!editing}
+            error={!editing && !form.university.university_code.trim()}
+            helperText={!editing && !form.university.university_code.trim() ? 'University code is required' : ''}
+            value={form.university.university_code}
+            onChange={(event) => setForm({ ...form, university: { ...form.university, university_code: event.target.value } })}
+          />
           <TextField label="Campus" value={form.university.campus_name} onChange={(event) => setForm({ ...form, university: { ...form.university, campus_name: event.target.value } })} />
           <TextField label="District" value={form.university.district} onChange={(event) => setForm({ ...form, university: { ...form.university, district: event.target.value } })} />
-          <TextField label="Counseling unit phone" value={form.university.counseling_unit_phone} onChange={(event) => setForm({ ...form, university: { ...form.university, counseling_unit_phone: event.target.value } })} />
+          <TextField label="Counseling unit phone" placeholder="+94771234567" value={form.university.counseling_unit_phone} onChange={(event) => setForm({ ...form, university: { ...form.university, counseling_unit_phone: event.target.value } })} />
         </Stack>
       )}
       {dialog === 'counselor' && (
@@ -918,6 +1009,8 @@ const AdminDialog = ({ dialog, editing, form, setForm, universities, counselors 
         disabled={
           (dialog === 'assignment' && !form.assignment.counselor_id)
           || (dialog === 'transfer' && (!form.transfer.to_counselor_id || !editing?.assignmentCount))
+          || (dialog === 'university' && (!form.university.university_name.trim() || (!editing && !form.university.university_code.trim())))
+          || (dialog === 'user' && (!form.user.full_name.trim() || !form.user.email.trim() || !form.user.username.trim() || (!editing && !form.user.password)))
         }
         onClick={onSubmit}
       >
