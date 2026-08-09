@@ -125,6 +125,29 @@ const riskPercentFromDass = (assessment = {}) => {
   const total = asNumber(assessment.total_dass21_score);
   return total === null ? null : boundedPercent((total / DASS21_MAX_SCORE) * 100);
 };
+const contextualEvidenceFrom = (evidence, fallbackLimitation) => {
+  if (!evidence) return null;
+  const metadata = evidence.metadata || {};
+  const rawOutput = evidence.raw_output || {};
+  const available = evidence.status === 'succeeded' && evidence.is_available !== false;
+  return {
+    status: evidence.status || 'missing',
+    availability: available ? 'available' : 'N/A',
+    analyzedAt: evidence.generated_at || evidence.source_timestamp,
+    label: available
+      ? metadata.emotion_label || metadata.anomaly_label || rawOutput.emotion_label || rawOutput.label || evidence.label || evidence.predicted_class || 'N/A'
+      : 'N/A',
+    confidence: evidence.confidence ?? rawOutput.confidence,
+    confidenceBand: metadata.confidence_band || 'unknown',
+    dataQuality: evidence.data_quality_status || metadata.data_quality_status || 'not_evaluated',
+    modelVersion: evidence.model_version || metadata.model_version,
+    preprocessingVersion: evidence.preprocessing_version || metadata.preprocessing_version,
+    technicalStatus: metadata.technical_status || evidence.status || 'not_verified',
+    fusionStatus: metadata.fusion_status || (evidence.included ? 'included' : 'excluded_contextual_only'),
+    failure: evidence.failure_message_safe || metadata.failure_message_safe || rawOutput.failure_message_safe,
+    limitation: metadata.limitation || fallbackLimitation,
+  };
+};
 const formatPercent = (value) => {
   const numeric = boundedPercent(value);
   return numeric === null ? 'N/A' : `${numeric.toFixed(1)}%`;
@@ -293,21 +316,26 @@ const StudentDetailView = () => {
 
   const latestSpeechEvidence = useMemo(() => {
     const evidence = detail?.modality_evidence?.find((item) => item.modality === 'speech');
-    if (!evidence) return null;
-    const metadata = evidence.metadata || {};
-    const rawOutput = evidence.raw_output || {};
-    return {
-      status: evidence.status || 'missing',
-      analyzedAt: evidence.generated_at || evidence.source_timestamp,
-      emotion: metadata.emotion_label || rawOutput.emotion_label || evidence.label,
-      confidence: evidence.confidence ?? rawOutput.confidence,
-      confidenceBand: metadata.confidence_band || 'unknown',
-      dataQuality: evidence.data_quality_status || metadata.data_quality_status || 'not_evaluated',
-      modelVersion: evidence.model_version || metadata.model_version,
-      technicalStatus: metadata.technical_status || evidence.status || 'not_verified',
-      fusionStatus: metadata.fusion_status || 'excluded',
-      limitation: metadata.limitation,
-    };
+    return contextualEvidenceFrom(
+      evidence,
+      'Voice emotion was analyzed, but it is not included in the final fused screening score because the project does not currently have an approved emotion-to-risk mapping.'
+    );
+  }, [detail]);
+
+  const latestFaceEvidence = useMemo(() => {
+    const evidence = detail?.modality_evidence?.find((item) => item.modality === 'face');
+    return contextualEvidenceFrom(
+      evidence,
+      'Facial-emotion output is contextual only and is not included in the final fused screening score.'
+    );
+  }, [detail]);
+
+  const latestBehavioralEvidence = useMemo(() => {
+    const evidence = detail?.modality_evidence?.find((item) => item.modality === 'behavioral');
+    return contextualEvidenceFrom(
+      evidence,
+      'Behavioral anomaly output is contextual only and is not included in the final fused screening score.'
+    );
   }, [detail]);
 
   const dailyModalityRows = useMemo(() => {
@@ -465,6 +493,48 @@ const StudentDetailView = () => {
         {content}
       </main>
     </div>
+  );
+
+  const renderContextualSignal = (title, evidence, emptyText) => (
+    <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+      <Typography variant="h6" sx={{ mb: 1 }}>
+        {title}
+      </Typography>
+      {evidence ? (
+        <Grid container spacing={1.5}>
+          {[
+            ['Status', evidence.status],
+            ['Availability', evidence.availability],
+            ['Latest timestamp', formatDateTime(evidence.analyzedAt)],
+            ['Latest label', evidence.label],
+            ['Confidence band', evidence.confidenceBand],
+            ['Confidence', evidence.confidence === null || evidence.confidence === undefined ? 'N/A' : formatPercent(evidence.confidence * 100)],
+            ['Data quality', evidence.dataQuality],
+            ['Model version', evidence.modelVersion || 'N/A'],
+            ['Preprocessing', evidence.preprocessingVersion || 'N/A'],
+            ['Technical status', evidence.technicalStatus],
+            ['Fusion status', evidence.fusionStatus],
+          ].map(([label, value]) => (
+            <Grid item xs={12} sm={6} md={4} key={label}>
+              <Typography variant="caption" color="text.secondary">{label}</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>{value || 'N/A'}</Typography>
+            </Grid>
+          ))}
+          {evidence.failure && (
+            <Grid item xs={12}>
+              <Alert severity="warning">{evidence.failure}</Alert>
+            </Grid>
+          )}
+          <Grid item xs={12}>
+            <Alert severity="info" sx={{ mt: 1 }}>
+              {evidence.limitation}
+            </Alert>
+          </Grid>
+        </Grid>
+      ) : (
+        <Typography color="text.secondary">{emptyText}</Typography>
+      )}
+    </Paper>
   );
 
   if (loading) {
@@ -627,38 +697,9 @@ const StudentDetailView = () => {
               </Paper>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant="h6" sx={{ mb: 1 }}>
-                Voice Emotion Signal
-              </Typography>
-              <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-                {latestSpeechEvidence ? (
-                  <Grid container spacing={1.5}>
-                    {[
-                      ['Status', latestSpeechEvidence.status],
-                      ['Latest analyzed voice date', formatDateTime(latestSpeechEvidence.analyzedAt)],
-                      ['Predicted emotion', latestSpeechEvidence.emotion || 'N/A'],
-                      ['Confidence band', latestSpeechEvidence.confidenceBand],
-                      ['Confidence', latestSpeechEvidence.confidence === null || latestSpeechEvidence.confidence === undefined ? 'N/A' : formatPercent(latestSpeechEvidence.confidence * 100)],
-                      ['Data quality', latestSpeechEvidence.dataQuality],
-                      ['Model version', latestSpeechEvidence.modelVersion || 'N/A'],
-                      ['Technical status', latestSpeechEvidence.technicalStatus],
-                      ['Fusion status', latestSpeechEvidence.fusionStatus],
-                    ].map(([label, value]) => (
-                      <Grid item xs={12} sm={6} md={4} key={label}>
-                        <Typography variant="caption" color="text.secondary">{label}</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{value}</Typography>
-                      </Grid>
-                    ))}
-                    <Grid item xs={12}>
-                      <Alert severity="info" sx={{ mt: 1 }}>
-                        {latestSpeechEvidence.limitation || 'Voice emotion was analyzed, but it is not included in the final fused screening score because the project does not currently have an approved emotion-to-risk mapping.'}
-                      </Alert>
-                    </Grid>
-                  </Grid>
-                ) : (
-                  <Typography color="text.secondary">No student voice-emotion analysis is available.</Typography>
-                )}
-              </Paper>
+              {renderContextualSignal('Voice Emotion Signal', latestSpeechEvidence, 'No student voice-emotion analysis is available.')}
+              {renderContextualSignal('Face Contextual Signal', latestFaceEvidence, 'No student facial-emotion analysis is available.')}
+              {renderContextualSignal('Behavioral Contextual Signal', latestBehavioralEvidence, 'No behavioral contextual evidence is available.')}
             </Grid>
             <Grid item xs={12}>
               <Typography variant="h6" sx={{ mb: 1 }}>
