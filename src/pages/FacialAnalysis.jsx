@@ -262,7 +262,10 @@ const FacialAnalysis = () => {
       setError('You do not have permission or the required consent.');
       return;
     }
-    const response = await predictFace({ source_reference_id: `browser-capture-${Date.now()}` });
+    const response = await predictFace({
+      source_reference_id: `browser-capture-${Date.now()}`,
+      image_data_url: captureUrl,
+    });
     setMessageSeverity('success');
     setMessage(response.failure_message_safe || 'Facial check-in submitted.');
     stopCamera();
