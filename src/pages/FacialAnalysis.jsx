@@ -10,7 +10,6 @@ import api from '../services/api';
 import studentService from '../services/studentService';
 import { predictFace } from '../services/modalityService';
 import { Sidebar } from '../components/layout/Sidebar';
-import { EmergencySOS } from '../components/common/EmergencySOS';
 import STUDENT_ROUTES from '../routes/studentRoutes';
 
 const MAX_CAPTURE_BYTES = 2 * 1024 * 1024;
@@ -263,7 +262,10 @@ const FacialAnalysis = () => {
       setError('You do not have permission or the required consent.');
       return;
     }
-    const response = await predictFace({ source_reference_id: `browser-capture-${Date.now()}` });
+    const response = await predictFace({
+      source_reference_id: `browser-capture-${Date.now()}`,
+      image_data_url: captureUrl,
+    });
     setMessageSeverity('success');
     setMessage(response.failure_message_safe || 'Facial check-in submitted.');
     stopCamera();
@@ -380,7 +382,6 @@ const FacialAnalysis = () => {
               </Stack>
             </Stack>
           </Paper>
-          <EmergencySOS />
         </Container>
       </main>
     </div>

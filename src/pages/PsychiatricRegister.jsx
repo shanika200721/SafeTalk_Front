@@ -1,97 +1,112 @@
 import React from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  Container,
-  Fade,
-  Paper,
-  TextField,
-  Typography,
-} from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import Psychology from '@mui/icons-material/Psychology';
-import VideoBackground from '../components/common/VideoBackground';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import LockIcon from '@mui/icons-material/Lock';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import LoginIcon from '@mui/icons-material/Login';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import welcomeGirl from '../assets/welcome-girl.webp';
+import './RegisterFlow.css';
 
 const PsychiatricRegister = () => {
   const navigate = useNavigate();
 
   return (
-    <VideoBackground overlay={true}>
-      <Container maxWidth="sm">
-        <Fade in={true} timeout={1000}>
-          <Box
-            sx={{
-              minHeight: '100vh',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              py: 4,
-            }}
-          >
-            <Paper
-              elevation={24}
-              sx={{
-                p: { xs: 3, md: 5 },
-                background: 'rgba(255, 255, 255, 0.95)',
-                backdropFilter: 'blur(10px)',
-                borderRadius: 4,
-              }}
+    <main className="register-page" aria-label="SafeTalk staff registration information">
+      <section className="register-shell register-staff-shell">
+        <aside className="register-story-panel" aria-label="Staff access message">
+          <div className="register-brand">
+            <span className="register-brand-mark" aria-hidden="true">
+              <FavoriteBorderIcon />
+            </span>
+            <span>
+              <strong>SafeTalk</strong>
+              <small>Mental Health Support</small>
+            </span>
+          </div>
+
+          <div className="register-story-copy">
+            <h1>
+              <span>Trusted</span>
+              Care Teams
+            </h1>
+            <p>
+              Staff access is protected so student wellbeing data stays safe and
+              professionally managed.
+            </p>
+          </div>
+
+          <div className="register-story-highlights">
+            <article>
+              <AdminPanelSettingsIcon aria-hidden="true" />
+              <span>
+                <strong>Admin approved</strong>
+                <small>Staff accounts are provisioned securely.</small>
+              </span>
+            </article>
+            <article>
+              <LockIcon aria-hidden="true" />
+              <span>
+                <strong>Protected access</strong>
+                <small>No public staff credential submission.</small>
+              </span>
+            </article>
+          </div>
+
+          <div className="register-illustration" aria-hidden="true">
+            <img src={welcomeGirl} alt="" />
+          </div>
+        </aside>
+
+        <section className="register-action-panel" aria-label="Staff access guidance">
+          <div className="register-action-card">
+            <div className="register-form-icon" aria-hidden="true">
+              <MedicalServicesIcon />
+            </div>
+            <p className="register-eyebrow">Staff account access</p>
+            <h2>Approval required</h2>
+            <p className="register-action-copy">
+              Counselor and psychiatrist accounts require administrative
+              approval. Public self-registration is available only for student
+              accounts.
+            </p>
+
+            <div className="register-info-panel">
+              <div>
+                <strong>Professional email</strong>
+                <small>Staff provisioning will be handled by an administrator.</small>
+              </div>
+              <div>
+                <strong>License or staff identifier</strong>
+                <small>Do not submit credentials through the public registration API.</small>
+              </div>
+            </div>
+
+            <button
+              className="register-submit-button"
+              type="button"
+              onClick={() => navigate('/login')}
             >
-              <Box sx={{ textAlign: 'center', mb: 4 }}>
-                <Psychology sx={{ fontSize: 60, color: '#50E3C2' }} />
-                <Typography variant="h5" sx={{ fontWeight: 700, color: '#50E3C2', mt: 1 }}>
-                  SAFE TALK
-                </Typography>
-              </Box>
+              <LoginIcon />
+              Go to Login
+              <ArrowForwardIcon className="register-submit-arrow" />
+            </button>
 
-              <Typography variant="h5" gutterBottom align="center" sx={{ fontWeight: 600, mb: 3 }}>
-                Staff Account Access
-              </Typography>
-
-              <Alert severity="info" sx={{ mb: 3 }}>
-                Counselor and psychiatrist accounts require administrative approval. Public
-                self-registration is available only for student accounts.
-              </Alert>
-
-              <TextField
-                fullWidth
-                label="Professional email"
-                margin="normal"
-                disabled
-                helperText="Staff provisioning will be handled by an administrator in a later workflow."
-              />
-              <TextField
-                fullWidth
-                label="License or staff identifier"
-                margin="normal"
-                disabled
-                helperText="Do not submit credentials through the public registration API."
-              />
-
-              <Button
-                fullWidth
-                variant="contained"
-                size="large"
-                onClick={() => navigate('/login')}
-                sx={{
-                  mt: 3,
-                  py: 1.5,
-                  background: 'linear-gradient(135deg, #50E3C2 0%, #4A90E2 100%)',
-                  fontSize: '1.05rem',
-                }}
-              >
-                Go to Login
-              </Button>
-
-              <Button fullWidth variant="text" onClick={() => navigate('/register')} sx={{ mt: 2 }}>
-                Back to Registration Type
-              </Button>
-            </Paper>
-          </Box>
-        </Fade>
-      </Container>
-    </VideoBackground>
+            <button
+              className="register-secondary-button"
+              type="button"
+              onClick={() => navigate('/register')}
+            >
+              <ArrowBackIcon />
+              Back to registration type
+            </button>
+          </div>
+        </section>
+      </section>
+    </main>
   );
 };
 

@@ -17,8 +17,6 @@ import {
   Paper,
   Select,
   Stack,
-  Tab,
-  Tabs,
   Table,
   TableBody,
   TableCell,
@@ -36,23 +34,17 @@ import {
   Assessment as AssessmentIcon,
   Block as BlockIcon,
   CheckCircle as CheckCircleIcon,
-  Dashboard as DashboardIcon,
   Delete as DeleteIcon,
   Download as DownloadIcon,
   Edit as EditIcon,
   History as HistoryIcon,
-  LibraryBooks as LibraryBooksIcon,
   LockReset as LockResetIcon,
   MailOutline as MailOutlineIcon,
   ManageSearch as AuditIcon,
-  ModelTraining as ModelIcon,
-  People as PeopleIcon,
   PersonAdd as PersonAddIcon,
   PlayArrow as PlayArrowIcon,
   Refresh as RefreshIcon,
-  School as SchoolIcon,
   Search as SearchIcon,
-  Settings as SettingsIcon,
   Stop as StopIcon,
   SwapHoriz as SwapHorizIcon,
   UploadFile as UploadFileIcon,
@@ -73,23 +65,12 @@ import {
   YAxis,
 } from 'recharts';
 import adminService from '../../services/adminService';
-
-const tabs = [
-  { key: 'dashboard', label: 'Dashboard', icon: <DashboardIcon fontSize="small" /> },
-  { key: 'universities', label: 'Universities', icon: <SchoolIcon fontSize="small" /> },
-  { key: 'users', label: 'Users', icon: <PeopleIcon fontSize="small" /> },
-  { key: 'counselors', label: 'Counselors', icon: <PersonAddIcon fontSize="small" /> },
-  { key: 'models', label: 'Models', icon: <ModelIcon fontSize="small" /> },
-  { key: 'resources', label: 'Resources', icon: <LibraryBooksIcon fontSize="small" /> },
-  { key: 'analytics', label: 'Analytics', icon: <AnalyticsIcon fontSize="small" /> },
-  { key: 'reports', label: 'Reports', icon: <AssessmentIcon fontSize="small" /> },
-  { key: 'audit', label: 'Audit Logs', icon: <AuditIcon fontSize="small" /> },
-  { key: 'settings', label: 'Settings', icon: <SettingsIcon fontSize="small" /> },
-];
+import { Sidebar } from '../../components/layout/Sidebar';
 
 const riskColors = ['#1565c0', '#2e7d32', '#ed6c02', '#c62828', '#6a1b9a'];
 const fmt = (value) => (value || value === 0 ? value : 'N/A');
 const dateFmt = (value) => (value ? new Date(value).toLocaleString() : 'N/A');
+const readableStatus = (value) => String(value || 'unknown').replaceAll('_', ' ');
 
 const emptyForms = {
   user: { username: '', email: '', password: 'Password123!', full_name: '', role: 'student', university_id: '' },
@@ -332,49 +313,62 @@ const AdminPortal = () => {
 
   if (loading) {
     return (
-      <Box sx={{ minHeight: '80vh', display: 'grid', placeItems: 'center' }}>
-        <CircularProgress />
-      </Box>
+      <div className="student-shell">
+        <Sidebar
+          variant="admin"
+          activeKey={activeTab}
+          onItemSelect={(item) => setActiveTab(item.key)}
+        />
+        <main className="student-main">
+          <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', bgcolor: '#f6f8fb', pt: { xs: 6, lg: 0 } }}>
+            <CircularProgress />
+          </Box>
+        </main>
+      </div>
     );
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f6f8fb' }}>
-      <Box sx={{ px: { xs: 2, md: 3 }, py: 2, bgcolor: '#ffffff', borderBottom: '1px solid #dfe5ee', position: 'sticky', top: 0, zIndex: 5 }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between" gap={2}>
-          <Box>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: '#1d2733' }}>Administration Portal</Typography>
-            <Typography variant="body2" color="text.secondary">Platform governance and institutional management</Typography>
+    <div className="student-shell">
+      <Sidebar
+        variant="admin"
+        activeKey={activeTab}
+        onItemSelect={(item) => setActiveTab(item.key)}
+      />
+      <main className="student-main">
+        <Box sx={{ minHeight: '100vh', bgcolor: '#f6f8fb', pt: { xs: 6, lg: 0 } }}>
+          <Box sx={{ px: { xs: 2, md: 3 }, py: 2, bgcolor: '#ffffff', borderBottom: '1px solid #dfe5ee', position: 'sticky', top: 0, zIndex: 5 }}>
+            <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between" gap={2}>
+              <Box>
+                <Typography variant="h5" sx={{ fontWeight: 800, color: '#1d2733' }}>Administration Portal</Typography>
+                <Typography variant="body2" color="text.secondary">Platform governance and institutional management</Typography>
+              </Box>
+              <Stack direction="row" gap={1} justifyContent="flex-end">
+                <Tooltip title="Refresh portal data">
+                  <IconButton onClick={loadData}><RefreshIcon /></IconButton>
+                </Tooltip>
+              </Stack>
+            </Stack>
           </Box>
-          <Stack direction="row" gap={1} justifyContent="flex-end">
-            <Tooltip title="Refresh portal data">
-              <IconButton onClick={loadData}><RefreshIcon /></IconButton>
-            </Tooltip>
-          </Stack>
-        </Stack>
-        <Tabs value={activeTab} onChange={(_, value) => setActiveTab(value)} variant="scrollable" scrollButtons="auto" sx={{ mt: 2, minHeight: 40 }}>
-          {tabs.map((item) => (
-            <Tab key={item.key} value={item.key} icon={item.icon} iconPosition="start" label={item.label} sx={{ minHeight: 40 }} />
-          ))}
-        </Tabs>
-      </Box>
 
-      <Box sx={{ p: { xs: 2, md: 3 } }}>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        {activeTab === 'dashboard' && <DashboardView dashboard={data.dashboard} audit={data.audit} />}
-        {activeTab === 'universities' && <UniversitiesView universities={data.universities} onCreate={() => openCreate('university')} onEdit={openEditUniversity} onDeactivate={(id) => runAction(() => adminService.deactivateUniversity(id))} />}
-        {activeTab === 'users' && <UsersView users={visibleUsers} counselors={data.counselors} search={search} setSearch={setSearch} onCreate={() => openCreate('user')} onAction={runAction} />}
-        {activeTab === 'counselors' && <CounselorsView counselors={data.counselors} onCreate={() => openCreate('counselor')} onEdit={openEditCounselor} onAction={runAction} />}
-        {activeTab === 'models' && <ModelsView models={data.models} runtimeStatus={data.runtimeStatus} onAction={runAction} />}
-        {activeTab === 'resources' && <ResourcesView resources={data.resources} onCreate={() => openCreate('resource')} onEdit={openEditResource} onAction={runAction} />}
-        {activeTab === 'analytics' && <AnalyticsView statistics={data.statistics} />}
-        {activeTab === 'reports' && <ReportsView reports={data.reports} reportTypes={data.reportTypes} onCreate={() => openCreate('report')} onAction={runAction} />}
-        {activeTab === 'audit' && <AuditView audit={data.audit} onAction={runAction} />}
-        {activeTab === 'settings' && <SettingsView settings={data.settings} onAction={runAction} />}
-      </Box>
+          <Box sx={{ p: { xs: 2, md: 3 } }}>
+            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+            {activeTab === 'dashboard' && <DashboardView dashboard={data.dashboard} audit={data.audit} />}
+            {activeTab === 'universities' && <UniversitiesView universities={data.universities} onCreate={() => openCreate('university')} onEdit={openEditUniversity} onDeactivate={(id) => runAction(() => adminService.deactivateUniversity(id))} />}
+            {activeTab === 'users' && <UsersView users={visibleUsers} counselors={data.counselors} search={search} setSearch={setSearch} onCreate={() => openCreate('user')} onAction={runAction} />}
+            {activeTab === 'counselors' && <CounselorsView counselors={data.counselors} onCreate={() => openCreate('counselor')} onEdit={openEditCounselor} onAction={runAction} />}
+            {activeTab === 'models' && <ModelsView models={data.models} runtimeStatus={data.runtimeStatus} onAction={runAction} />}
+            {activeTab === 'resources' && <ResourcesView resources={data.resources} onCreate={() => openCreate('resource')} onEdit={openEditResource} onAction={runAction} />}
+            {activeTab === 'analytics' && <AnalyticsView statistics={data.statistics} />}
+            {activeTab === 'reports' && <ReportsView reports={data.reports} reportTypes={data.reportTypes} onCreate={() => openCreate('report')} onAction={runAction} />}
+            {activeTab === 'audit' && <AuditView audit={data.audit} onAction={runAction} />}
+            {activeTab === 'settings' && <SettingsView settings={data.settings} onAction={runAction} />}
+          </Box>
 
-      <AdminDialog dialog={dialog} editing={editing} form={form} setForm={setForm} universities={data.universities} reportTypes={data.reportTypes} onClose={() => { setDialog(null); setEditing(null); }} onSubmit={submitDialog} />
-    </Box>
+          <AdminDialog dialog={dialog} editing={editing} form={form} setForm={setForm} universities={data.universities} reportTypes={data.reportTypes} onClose={() => { setDialog(null); setEditing(null); }} onSubmit={submitDialog} />
+        </Box>
+      </main>
+    </div>
   );
 };
 
@@ -522,20 +516,28 @@ const ModelsView = ({ models, runtimeStatus, onAction }) => (
   <Stack gap={2}>
     <Paper sx={{ p: 2, borderRadius: 1.5 }}>
       <ToolbarTitle title="Runtime Health" />
-      <CompactTable headers={['Modality', 'Health', 'Active', 'Artifact', 'Hash', 'Loader', 'Preprocessing', 'Smoke Test', 'Last Inference', 'Fusion', 'Reason']}>
+      <CompactTable headers={['Modality', 'Technical Runtime', 'Research Reliability', 'Fusion Eligibility', 'Artifact', 'Hash', 'Loader', 'Preprocessing', 'Smoke Test', 'Last Inference', 'Reason']}>
         {(runtimeStatus || []).map((item) => (
           <TableRow key={item.modality} hover>
             <TableCell>{item.modality}</TableCell>
-            <TableCell><StatusChip value={item.health_state} /></TableCell>
-            <TableCell>{item.active ? 'Yes' : 'No'}</TableCell>
+            <TableCell>
+              <Tooltip title={`Health: ${readableStatus(item.health_state)}. Active registry flag: ${item.active ? 'yes' : 'no'}.`}>
+                <span><StatusChip value={readableStatus(item.technical_status || item.health_state)} /></span>
+              </Tooltip>
+            </TableCell>
+            <TableCell>{readableStatus(item.research_reliability)}</TableCell>
+            <TableCell>
+              <Tooltip title="Fusion eligibility is governed by backend policy and cannot be manually overridden here.">
+                <span>{item.fusion_eligibility ? 'Eligible' : `Excluded - ${readableStatus(item.fusion_status)}`}</span>
+              </Tooltip>
+            </TableCell>
             <TableCell>{item.artifact_available ? 'Available' : 'Unavailable'}</TableCell>
             <TableCell>{item.hash_valid ? 'Valid' : 'Not valid'}</TableCell>
             <TableCell>{fmt(item.loader_status)}</TableCell>
             <TableCell>{fmt(item.preprocessing_status)}</TableCell>
             <TableCell>{fmt(item.smoke_test_status)}</TableCell>
             <TableCell>{dateFmt(item.last_successful_inference || item.last_failed_inference)}</TableCell>
-            <TableCell>{item.fusion_eligibility ? 'Eligible' : 'Excluded'}</TableCell>
-            <TableCell>{fmt(item.failure_reason)}</TableCell>
+            <TableCell>{readableStatus(item.failure_reason)}</TableCell>
           </TableRow>
         ))}
       </CompactTable>

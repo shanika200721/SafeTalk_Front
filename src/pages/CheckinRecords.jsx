@@ -13,7 +13,6 @@ import {
 import { motion as Motion } from 'framer-motion'
 import studentService from '../services/studentService'
 import { Sidebar } from '../components/layout/Sidebar'
-import { EmergencySOS } from '../components/common/EmergencySOS'
 
 const fallbackHistory = [
   {
@@ -139,7 +138,7 @@ const CheckinRecords = () => {
         <Motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="student-page"
+          className="student-page student-history-page"
         >
           <div className="student-page-header">
             <div>
@@ -318,8 +317,6 @@ const CheckinRecords = () => {
               </>
             )}
           </div>
-
-          <EmergencySOS />
         </Motion.div>
       </main>
     </div>

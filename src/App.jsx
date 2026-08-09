@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 
 // Import context
 import { AuthProvider, useAuth } from './context/AuthContext';
+import useBehavioralTelemetry from './hooks/useBehavioralTelemetry';
 
 // Import pages
 import Welcome from './pages/Welcome';
@@ -145,6 +146,8 @@ const AdminRoute = ({ children }) => {
 
 // Routes container
 function AppRoutes() {
+  useBehavioralTelemetry();
+
   return (
     <Routes>
       {/* Public Routes */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   Box,
   TextField,
@@ -11,6 +11,7 @@ import {
   CircularProgress,
   Alert,
   IconButton,
+  InputAdornment,
   Tooltip,
   Badge,
   Chip,
@@ -30,24 +31,53 @@ import {
   ArrowBack as ArrowBackIcon,
   Refresh as RefreshIcon,
   Close as CloseIcon,
-  Call as CallIcon,
-  Videocam as VideoCallIcon,
   Mic as MicIcon,
   AttachFile as AttachFileIcon,
   MoreVert as MoreVertIcon,
   AccountCircle as AccountCircleIcon,
+  Menu as MenuIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import counselorService from '../services/counselorService';
 import VideoBackground from '../components/common/VideoBackground';
 import AuthenticatedAudio from '../components/common/AuthenticatedAudio';
+import { Sidebar } from '../components/layout/Sidebar';
+
+const SRI_LANKA_TIME_ZONE = 'Asia/Colombo';
+
+const parseServerDate = (timestamp) => {
+  if (!timestamp) return null;
+  const value = String(timestamp);
+  const hasTimezone = /(?:z|[+-]\d{2}:?\d{2})$/i.test(value);
+  return new Date(hasTimezone ? value : `${value}Z`);
+};
 
 const formatMessageText = (text) => {
   if (!text) return [];
   return text
     .split(/(?<=[.!?])\s+(?=[A-Z])|(?<=[.!?])\n/g)
     .filter(p => p.trim().length > 0);
+};
+
+const getChatStudentId = (student) => Number(student?.student?.id || student?.user_id || student?.id);
+
+const normalizeChatStudent = (student) => {
+  const studentId = getChatStudentId(student);
+  return {
+    ...student,
+    id: studentId,
+    user_id: studentId,
+    full_name: student?.student?.full_name || student?.full_name || student?.name || student?.username || 'Student',
+    email: student?.student?.email || student?.email || '',
+    last_message: student?.last_message || null,
+    last_message_time: student?.last_message_time || student?.last_checkin || student?.last_assessment || null,
+    unread_count: Number(student?.unread_count || 0),
+    latest_message_type: student?.latest_message_type || null,
+    conversation_id: student?.conversation_id || null,
+  };
 };
 
 const CounselorChat = () => {
@@ -60,6 +90,7 @@ const CounselorChat = () => {
   const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState('');
   const [studentInfo, setStudentInfo] = useState(null);
+  const [conversationSearch, setConversationSearch] = useState('');
   
   // UI state
   const [loading, setLoading] = useState(true);
@@ -96,20 +127,24 @@ const CounselorChat = () => {
 
   // Restore selected student from localStorage
   useEffect(() => {
-    const savedStudentId = localStorage.getItem('selectedChatStudentId');
-    if (savedStudentId && conversations.length > 0) {
-      const selected = conversations.find(c => c.user_id === parseInt(savedStudentId));
+    const savedStudentId =
+      localStorage.getItem('selectedChatStudentId') ||
+      localStorage.getItem('selectedChatConversationId');
+    if (savedStudentId && conversations.length > 0 && !selectedStudent) {
+      const selected = conversations.find(c => getChatStudentId(c) === parseInt(savedStudentId, 10));
       if (selected) {
         setSelectedStudent(selected);
       }
     }
-  }, [conversations]);
+  }, [conversations, selectedStudent]);
 
   // Load messages when student selected
   useEffect(() => {
     if (selectedStudent) {
       loadMessages();
-      localStorage.setItem('selectedChatStudentId', selectedStudent.user_id || selectedStudent.id);
+      const studentId = getChatStudentId(selectedStudent);
+      localStorage.setItem('selectedChatStudentId', String(studentId));
+      localStorage.setItem('selectedChatConversationId', String(studentId));
       setStudentInfo(selectedStudent);
     }
   }, [selectedStudent]);
@@ -120,10 +155,49 @@ const CounselorChat = () => {
         setLoading(true);
       }
       
-      const response = await api.get('/api/chat/conversations').catch(() => ({ data: [] }));
-      
-      setConversations(response.data || []);
-      setError('');
+      let conversationRows = [];
+      let conversationLoadFailed = false;
+      try {
+        const response = await api.get('/api/chat/conversations');
+        conversationRows = response.data || [];
+      } catch (conversationErr) {
+        conversationLoadFailed = true;
+        console.error('Error loading recent chat conversations:', conversationErr);
+      }
+
+      let assignedStudents = [];
+      try {
+        const assigned = await counselorService.getAllStudents({ limit: 200 });
+        assignedStudents = assigned.students || [];
+      } catch (assignedErr) {
+        console.warn('Unable to load assigned students for chat list:', assignedErr);
+      }
+
+      const merged = new Map();
+      assignedStudents.map(normalizeChatStudent).forEach((student) => {
+        if (student.user_id) merged.set(student.user_id, student);
+      });
+      conversationRows.map(normalizeChatStudent).forEach((conversation) => {
+        if (!conversation.user_id) return;
+        merged.set(conversation.user_id, {
+          ...(merged.get(conversation.user_id) || {}),
+          ...conversation,
+        });
+      });
+
+      const nextConversations = [...merged.values()].sort((a, b) => {
+        const aTime = parseServerDate(a.last_message_time)?.getTime() || 0;
+        const bTime = parseServerDate(b.last_message_time)?.getTime() || 0;
+        if (aTime !== bTime) return bTime - aTime;
+        return (a.full_name || '').localeCompare(b.full_name || '');
+      });
+
+      setConversations(nextConversations);
+      setSelectedStudent((current) => {
+        if (!current) return current;
+        return nextConversations.find((student) => getChatStudentId(student) === getChatStudentId(current)) || current;
+      });
+      setError(conversationLoadFailed ? 'Assigned students loaded, but recent chat previews could not be refreshed.' : '');
     } catch (err) {
       console.error('Error loading conversations:', err);
       if (isInitialLoad) {
@@ -139,7 +213,7 @@ const CounselorChat = () => {
   const loadMessages = async () => {
     if (!selectedStudent) return;
     try {
-      const receiverId = selectedStudent.user_id || selectedStudent.id;
+      const receiverId = getChatStudentId(selectedStudent);
       const response = await api.get(`/api/chat/messages/${receiverId}`, {
         params: { limit: 100 }
       });
@@ -176,7 +250,7 @@ const CounselorChat = () => {
       setMessages([...messages, tempMsg]);
       setMessageText('');
 
-      const receiverId = parseInt(selectedStudent.user_id || selectedStudent.id);
+      const receiverId = parseInt(getChatStudentId(selectedStudent), 10);
       if (isNaN(receiverId)) {
         throw new Error(`Invalid receiver_id: selectedStudent=${JSON.stringify(selectedStudent)}`);
       }
@@ -243,11 +317,14 @@ const CounselorChat = () => {
   };
 
   const formatTime = (timestamp) => {
-    return new Date(timestamp).toLocaleTimeString('en-US', {
+    const date = parseServerDate(timestamp);
+    if (!date || Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('en-LK', {
+      timeZone: SRI_LANKA_TIME_ZONE,
       hour: '2-digit',
       minute: '2-digit',
       hour12: true
-    });
+    }).format(date);
   };
 
   const getInitials = (name) => {
@@ -258,14 +335,15 @@ const CounselorChat = () => {
       .toUpperCase() || 'S';
   };
 
-  // Call handlers
-  const handleVoiceCall = () => {
-    alert(`Initiating voice call with ${studentInfo?.full_name}...`);
-  };
-
-  const handleVideoCall = () => {
-    alert(`Initiating video call with ${studentInfo?.full_name}...`);
-  };
+  const filteredConversations = useMemo(() => {
+    const needle = conversationSearch.trim().toLowerCase();
+    if (!needle) return conversations;
+    return conversations.filter((conversation) =>
+      [conversation.full_name, conversation.name, conversation.email]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(needle)),
+    );
+  }, [conversationSearch, conversations]);
 
   // Voice message handlers
   const handleStartVoiceMessage = async () => {
@@ -294,7 +372,7 @@ const CounselorChat = () => {
             return;
           }
           
-          const receiverId = selectedStudent.user_id || selectedStudent.id;
+          const receiverId = getChatStudentId(selectedStudent);
           if (!receiverId) {
             setError('Invalid receiver ID');
             return;
@@ -416,29 +494,37 @@ const CounselorChat = () => {
 
   if (loading) {
     return (
-      <VideoBackground overlay={true}>
-        <Box sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '80vh'
-        }}>
-          <Box sx={{ textAlign: 'center', color: 'white' }}>
-            <CircularProgress sx={{ mb: 2, color: 'white' }} />
-            <Typography>Loading conversations...</Typography>
-          </Box>
-        </Box>
-      </VideoBackground>
+      <div className="student-shell">
+        <Sidebar variant="counselor" />
+        <main className="student-main">
+          <VideoBackground overlay={true}>
+            <Box sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              height: '80vh'
+            }}>
+              <Box sx={{ textAlign: 'center', color: 'white' }}>
+                <CircularProgress sx={{ mb: 2, color: 'white' }} />
+                <Typography>Loading conversations...</Typography>
+              </Box>
+            </Box>
+          </VideoBackground>
+        </main>
+      </div>
     );
   }
 
   return (
-    <VideoBackground overlay={true}>
-      <Box sx={{
-        display: 'flex',
-        height: '100vh',
-        flexDirection: 'column'
-      }}>
+    <div className="student-shell">
+      <Sidebar variant="counselor" />
+      <main className="student-main">
+        <VideoBackground overlay={true}>
+          <Box sx={{
+            display: 'flex',
+            height: '100vh',
+            flexDirection: 'column'
+          }}>
         {/* Header */}
         <Box sx={{
           p: 2,
@@ -450,6 +536,15 @@ const CounselorChat = () => {
           zIndex: 10
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <IconButton
+              color="inherit"
+              onClick={() => setMobileOpen((value) => !value)}
+              size="small"
+              sx={{ display: { xs: 'inline-flex', md: 'none' } }}
+              aria-label="Open student conversations"
+            >
+              <MenuIcon />
+            </IconButton>
             <IconButton 
               color="inherit" 
               onClick={() => navigate(-1)}
@@ -461,15 +556,37 @@ const CounselorChat = () => {
               💬 Student Support Chat
             </Typography>
           </Box>
-          <Tooltip title="Refresh">
-            <IconButton 
-              color="inherit"
-              onClick={() => loadData(false)}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
+            <TextField
               size="small"
-            >
-              <RefreshIcon />
-            </IconButton>
-          </Tooltip>
+              value={conversationSearch}
+              onChange={(event) => setConversationSearch(event.target.value)}
+              placeholder="Search students"
+              sx={{
+                width: { xs: '100%', sm: 260 },
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: 'rgba(255,255,255,0.94)',
+                  borderRadius: 2,
+                },
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Tooltip title="Refresh">
+              <IconButton
+                color="inherit"
+                onClick={() => loadData(false)}
+                size="small"
+              >
+                <RefreshIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
 
         {/* Error Alert */}
@@ -491,12 +608,15 @@ const CounselorChat = () => {
         }}>
           {/* Students List */}
           <Box sx={{
-            width: { xs: mobileOpen ? '100%' : '0', md: '350px' },
+            width: { xs: (mobileOpen || !selectedStudent) ? '100%' : '0', md: '350px' },
+            minWidth: { xs: (mobileOpen || !selectedStudent) ? '100%' : '0', md: '350px' },
+            flexShrink: 0,
             bgcolor: 'white',
             borderRight: '1px solid #e0e0e0',
             display: 'flex',
             flexDirection: 'column',
             overflowY: 'auto',
+            overflowX: 'hidden',
             transition: 'width 0.3s'
           }}>
             <Box sx={{
@@ -505,30 +625,37 @@ const CounselorChat = () => {
               borderBottom: '1px solid #e0e0e0'
             }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#666' }}>
-                👥 Student Conversations ({conversations.length})
+                👥 Student Conversations ({filteredConversations.length})
               </Typography>
             </Box>
 
-            {conversations.length === 0 ? (
+            {filteredConversations.length === 0 ? (
               <Box sx={{
                 p: 3,
                 textAlign: 'center',
                 color: '#999'
               }}>
-                <Typography variant="body2">No conversations yet</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: '#475569' }}>
+                  {conversationSearch.trim() ? 'No matching students' : 'No student chats yet'}
+                </Typography>
+                <Typography variant="caption" sx={{ display: 'block', mt: 0.75, color: '#64748b' }}>
+                  {conversationSearch.trim()
+                    ? 'Try another name or email.'
+                    : 'Assigned students and new messages will appear here.'}
+                </Typography>
               </Box>
             ) : (
               <List sx={{ p: 0 }}>
-                {conversations.map((conv) => (
+                {filteredConversations.map((conv) => (
                   <ListItemButton
                     key={`conv-${conv.id}`}
-                    selected={selectedStudent?.id === conv.id}
+                    selected={getChatStudentId(selectedStudent) === getChatStudentId(conv)}
                     onClick={() => {
                       setSelectedStudent(conv);
                       setMobileOpen(false);
                     }}
                     sx={{
-                      borderLeft: selectedStudent?.id === conv.id ? '4px solid #667eea' : 'none',
+                      borderLeft: getChatStudentId(selectedStudent) === getChatStudentId(conv) ? '4px solid #667eea' : 'none',
                       '&.Mui-selected': {
                         bgcolor: '#f0f0f0',
                         '&:hover': { bgcolor: '#e8e8e8' }
@@ -576,7 +703,7 @@ const CounselorChat = () => {
 
           {/* Chat Area */}
           <Box sx={{
-            display: 'flex',
+            display: { xs: selectedStudent ? 'flex' : 'none', md: 'flex' },
             flexDirection: 'column',
             flex: 1,
             bgcolor: 'rgba(255,255,255,0.98)',
@@ -631,26 +758,6 @@ const CounselorChat = () => {
                   
                   {/* Action Buttons */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Tooltip title="Voice Call">
-                      <IconButton 
-                        size="small"
-                        onClick={() => handleVoiceCall()}
-                        sx={{ color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}
-                      >
-                        <CallIcon sx={{ fontSize: '1.3rem' }} />
-                      </IconButton>
-                    </Tooltip>
-                    
-                    <Tooltip title="Video Call">
-                      <IconButton 
-                        size="small"
-                        onClick={() => handleVideoCall()}
-                        sx={{ color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}
-                      >
-                        <VideoCallIcon sx={{ fontSize: '1.3rem' }} />
-                      </IconButton>
-                    </Tooltip>
-                    
                     <Tooltip title="More Options">
                       <IconButton 
                         size="small"
@@ -983,13 +1090,13 @@ const CounselorChat = () => {
                 justifyContent: 'center',
                 height: '100%',
                 textAlign: 'center',
-                color: 'white'
+                color: '#334155'
               }}>
                 <Box>
-                  <Typography variant="h5" sx={{ mb: 1 }}>
-                    📬 Select a Student
+                  <Typography variant="h5" sx={{ mb: 1, fontWeight: 800, color: '#1f2937' }}>
+                    Select a Student
                   </Typography>
-                  <Typography variant="body1" sx={{ opacity: 0.9 }}>
+                  <Typography variant="body1" sx={{ color: '#64748b' }}>
                     Choose from the list to start chatting
                   </Typography>
                 </Box>
@@ -997,8 +1104,10 @@ const CounselorChat = () => {
             )}
           </Box>
         </Box>
-      </Box>
-    </VideoBackground>
+          </Box>
+        </VideoBackground>
+      </main>
+    </div>
   );
 };
 

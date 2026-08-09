@@ -1,124 +1,141 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import SpaIcon from '@mui/icons-material/Spa';
+import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
+import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import LoginIcon from '@mui/icons-material/Login';
+import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
+import welcomeGirl from '../assets/welcome-girl.webp';
+import './Welcome.css';
+
+const features = [
+  {
+    icon: <ShieldOutlinedIcon />,
+    title: 'Private and Secure',
+    copy: 'Your wellbeing data is protected with care.',
+    tone: 'teal',
+  },
+  {
+    icon: <ScienceOutlinedIcon />,
+    title: 'Science Backed',
+    copy: 'Evidence-based assessments and resources.',
+    tone: 'blue',
+  },
+  {
+    icon: <SpaIcon />,
+    title: 'Personalized Support',
+    copy: 'Tools and guidance tailored for you.',
+    tone: 'violet',
+  },
+];
 
 const Welcome = () => {
   const navigate = useNavigate();
-  
-  React.useEffect(() => {
-  }, []);
 
   return (
-    <div style={{
-      width: '100%',
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      position: 'relative',
-      overflow: 'hidden'
-    }}>
-      {/* Overlay */}
-      <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
-        zIndex: 0,
-      }} />
-      
-      {/* Content */}
-      <div style={{
-        position: 'relative',
-        zIndex: 1,
-        textAlign: 'center',
-        color: 'white',
-        padding: '40px 20px',
-        maxWidth: '600px'
-      }}>
-        <h1 style={{
-          fontSize: '5rem',
-          fontWeight: 800,
-          margin: '0 0 20px 0',
-          background: 'linear-gradient(135deg, #4A90E2 30%, #50E3C2 90%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-        }}>
-          SAFE TALK
-        </h1>
-        
-        <h2 style={{
-          fontSize: '1.5rem',
-          fontWeight: 600,
-          color: 'white',
-          marginBottom: '20px'
-        }}>
-          An Intelligent Platform That Understands You Beyond Words
-        </h2>
-        
-        <p style={{
-          fontSize: '1.1rem',
-          color: 'rgba(255, 255, 255, 0.9)',
-          marginBottom: '40px'
-        }}>
-          Empowering mental health support through advanced assessment
-        </p>
-        
-        <div style={{
-          display: 'flex',
-          gap: '20px',
-          justifyContent: 'center',
-          flexWrap: 'wrap'
-        }}>
-          <button
-            onClick={() => navigate('/login')}
-            style={{
-              background: 'linear-gradient(135deg, #4A90E2, #50E3C2)',
-              color: 'white',
-              border: 'none',
-              padding: '15px 40px',
-              fontSize: '1rem',
-              fontWeight: 600,
-              borderRadius: '8px',
-              cursor: 'pointer',
-              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
-              transition: 'transform 0.2s'
-            }}
-            onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'}
-            onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
-          >
-            Login
-          </button>
-          
-          <button
-            onClick={() => navigate('/register')}
-            style={{
-              background: 'transparent',
-              color: 'white',
-              border: '2px solid white',
-              padding: '15px 40px',
-              fontSize: '1rem',
-              fontWeight: 600,
-              borderRadius: '8px',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-            onMouseOver={(e) => {
-              e.target.style.background = 'rgba(255, 255, 255, 0.1)';
-              e.target.style.transform = 'scale(1.05)';
-            }}
-            onMouseOut={(e) => {
-              e.target.style.background = 'transparent';
-              e.target.style.transform = 'scale(1)';
-            }}
-          >
-            Sign Up
-          </button>
+    <main className="welcome-page" aria-label="SafeTalk welcome page">
+      <section className="welcome-shell">
+        <div className="welcome-story-panel">
+          <div className="welcome-brand">
+            <span className="welcome-brand-mark" aria-hidden="true">
+              <FavoriteBorderIcon />
+            </span>
+            <span>
+              <strong>SafeTalk</strong>
+              <small>Mental Health Support</small>
+            </span>
+          </div>
+
+          <div className="welcome-story-copy">
+            <h1>
+              <span>Your Mind</span>
+              Matters
+            </h1>
+            <p>
+              SafeTalk is here to support your mental wellbeing with care,
+              understanding, and privacy.
+            </p>
+          </div>
+
+          <div className="welcome-feature-list" aria-label="SafeTalk highlights">
+            {features.map(({ icon, title, copy, tone }) => (
+              <article className="welcome-feature" key={title}>
+                <span className={`welcome-feature-icon ${tone}`} aria-hidden="true">
+                  {icon}
+                </span>
+                <span>
+                  <strong>{title}</strong>
+                  <small>{copy}</small>
+                </span>
+              </article>
+            ))}
+          </div>
+
+          <figure className="welcome-quote">
+            <blockquote>
+              It's okay to not be okay. You do not have to go through it alone.
+            </blockquote>
+          </figure>
+
+          <div className="welcome-orbit" aria-hidden="true">
+            <span className="orbit-ring ring-one" />
+            <span className="orbit-ring ring-two" />
+            <span className="orbit-dot dot-one" />
+            <span className="orbit-dot dot-two" />
+            <span className="orbit-dot dot-three" />
+          </div>
+
+          <div className="welcome-illustration" aria-hidden="true">
+            <img src={welcomeGirl} alt="" />
+          </div>
         </div>
-      </div>
-    </div>
+
+        <div className="welcome-action-panel">
+          <div className="welcome-action-inner">
+            <div className="welcome-action-icon" aria-hidden="true">
+              <PsychologyIcon />
+            </div>
+
+            <p className="welcome-eyebrow">An intelligent support platform</p>
+            <h2>Welcome to SafeTalk</h2>
+            <p className="welcome-action-copy">
+              Continue your journey toward better wellbeing with gentle,
+              private support that understands more than words.
+            </p>
+
+            <div className="welcome-actions" aria-label="Account actions">
+              <button
+                className="welcome-primary-button"
+                type="button"
+                onClick={() => navigate('/login')}
+              >
+                <LoginIcon />
+                Login
+                <ArrowForwardIcon className="welcome-button-arrow" />
+              </button>
+
+              <button
+                className="welcome-secondary-button"
+                type="button"
+                onClick={() => navigate('/register')}
+              >
+                <PersonAddAlt1Icon />
+                Sign Up
+              </button>
+            </div>
+
+            <div className="welcome-help-row" aria-label="Support promises">
+              <span>Confidential</span>
+              <span>Responsive</span>
+              <span>Supportive</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 };
 

@@ -32,6 +32,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import counselorService from '../../services/counselorService';
+import { Sidebar } from '../../components/layout/Sidebar';
 
 const riskColors = {
   LOW: 'success',
@@ -107,157 +108,169 @@ const AllStudentsView = () => {
 
   if (loading) {
     return (
-      <Box sx={{ minHeight: '70vh', display: 'grid', placeItems: 'center' }}>
-        <CircularProgress />
-      </Box>
+      <div className="student-shell">
+        <Sidebar variant="counselor" />
+        <main className="student-main">
+          <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', pt: { xs: 6, lg: 0 } }}>
+            <CircularProgress />
+          </Box>
+        </main>
+      </div>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 3 }}>
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: 700 }}>
-            Assigned Students
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Assignment-scoped student list with model output and human-review status kept separate.
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button startIcon={<RefreshIcon />} variant="outlined" onClick={fetchStudents}>
-            Refresh
-          </Button>
-          <Button startIcon={<DownloadIcon />} variant="outlined" onClick={exportCsv}>
-            CSV
-          </Button>
-        </Box>
-      </Box>
+    <div className="student-shell">
+      <Sidebar variant="counselor" />
+      <main className="student-main">
+        <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc', pt: { xs: 6, lg: 0 } }}>
+          <Container maxWidth="xl" sx={{ py: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 3 }}>
+              <Box>
+                <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                  Assigned Students
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Assignment-scoped student list with model output and human-review status kept separate.
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button startIcon={<RefreshIcon />} variant="outlined" onClick={fetchStudents}>
+                  Refresh
+                </Button>
+                <Button startIcon={<DownloadIcon />} variant="outlined" onClick={exportCsv}>
+                  CSV
+                </Button>
+              </Box>
+            </Box>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
+            {error && (
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {error}
+              </Alert>
+            )}
 
-      <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-          <TextField
-            size="small"
-            label="Search students"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setPage(0);
-            }}
-            sx={{ minWidth: 280 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>Risk</InputLabel>
-            <Select
-              label="Risk"
-              value={riskFilter}
-              onChange={(event) => {
-                setRiskFilter(event.target.value);
-                setPage(0);
-              }}
-            >
-              {['ALL', 'LOW', 'MEDIUM', 'HIGH', 'SEVERE'].map((risk) => (
-                <MenuItem value={risk} key={risk}>
-                  {risk}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+            <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                <TextField
+                  size="small"
+                  label="Search students"
+                  value={search}
+                  onChange={(event) => {
+                    setSearch(event.target.value);
+                    setPage(0);
+                  }}
+                  sx={{ minWidth: 280 }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+                <FormControl size="small" sx={{ minWidth: 180 }}>
+                  <InputLabel>Risk</InputLabel>
+                  <Select
+                    label="Risk"
+                    value={riskFilter}
+                    onChange={(event) => {
+                      setRiskFilter(event.target.value);
+                      setPage(0);
+                    }}
+                  >
+                    {['ALL', 'LOW', 'MEDIUM', 'HIGH', 'SEVERE'].map((risk) => (
+                      <MenuItem value={risk} key={risk}>
+                        {risk}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+            </Paper>
+
+            <Paper sx={{ borderRadius: 2 }}>
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Student</TableCell>
+                      <TableCell>Department</TableCell>
+                      <TableCell>Risk</TableCell>
+                      <TableCell>Fusion</TableCell>
+                      <TableCell>Evidence</TableCell>
+                      <TableCell>DASS-21</TableCell>
+                      <TableCell>Last Mood</TableCell>
+                      <TableCell>Last Check-In</TableCell>
+                      <TableCell align="right">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {pageRows.map((student) => (
+                      <TableRow hover key={student.id}>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                            {student.full_name || student.name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {student.email}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>{student.department || 'N/A'}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={student.risk_level || 'UNKNOWN'}
+                            color={riskColors[student.risk_level] || 'default'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>{student.fusion_score ?? 'N/A'}</TableCell>
+                        <TableCell>{student.evidence_coverage ?? 'N/A'}</TableCell>
+                        <TableCell>{student.avg_dass21_score ?? 'N/A'}</TableCell>
+                        <TableCell>{student.last_mood ?? 'N/A'}</TableCell>
+                        <TableCell>{formatDate(student.last_checkin)}</TableCell>
+                        <TableCell align="right">
+                          <Tooltip title="Open student detail">
+                            <IconButton size="small" onClick={() => navigate(`/counselor/student/${student.id}`)}>
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Download PDF report">
+                            <IconButton size="small" onClick={() => counselorService.downloadStudentReport(student.id, 'pdf')}>
+                              <DownloadIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {pageRows.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={9}>
+                          <Box sx={{ textAlign: 'center', py: 4 }}>
+                            <Typography color="text.secondary">No students match the current filters.</Typography>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <TablePagination
+                component="div"
+                count={filteredStudents.length}
+                page={page}
+                rowsPerPage={rowsPerPage}
+                onPageChange={(event, nextPage) => setPage(nextPage)}
+                onRowsPerPageChange={(event) => {
+                  setRowsPerPage(Number(event.target.value));
+                  setPage(0);
+                }}
+              />
+            </Paper>
+          </Container>
         </Box>
-      </Paper>
-
-      <Paper sx={{ borderRadius: 2 }}>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Student</TableCell>
-                <TableCell>Department</TableCell>
-                <TableCell>Risk</TableCell>
-                <TableCell>Fusion</TableCell>
-                <TableCell>Evidence</TableCell>
-                <TableCell>DASS-21</TableCell>
-                <TableCell>Last Mood</TableCell>
-                <TableCell>Last Check-In</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {pageRows.map((student) => (
-                <TableRow hover key={student.id}>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                      {student.full_name || student.name}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {student.email}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{student.department || 'N/A'}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={student.risk_level || 'UNKNOWN'}
-                      color={riskColors[student.risk_level] || 'default'}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>{student.fusion_score ?? 'N/A'}</TableCell>
-                  <TableCell>{student.evidence_coverage ?? 'N/A'}</TableCell>
-                  <TableCell>{student.avg_dass21_score ?? 'N/A'}</TableCell>
-                  <TableCell>{student.last_mood ?? 'N/A'}</TableCell>
-                  <TableCell>{formatDate(student.last_checkin)}</TableCell>
-                  <TableCell align="right">
-                    <Tooltip title="Open student detail">
-                      <IconButton size="small" onClick={() => navigate(`/counselor/student/${student.id}`)}>
-                        <VisibilityIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Download PDF report">
-                      <IconButton size="small" onClick={() => counselorService.downloadStudentReport(student.id, 'pdf')}>
-                        <DownloadIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {pageRows.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={9}>
-                    <Box sx={{ textAlign: 'center', py: 4 }}>
-                      <Typography color="text.secondary">No students match the current filters.</Typography>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        <TablePagination
-          component="div"
-          count={filteredStudents.length}
-          page={page}
-          rowsPerPage={rowsPerPage}
-          onPageChange={(event, nextPage) => setPage(nextPage)}
-          onRowsPerPageChange={(event) => {
-            setRowsPerPage(Number(event.target.value));
-            setPage(0);
-          }}
-        />
-      </Paper>
-    </Container>
+      </main>
+    </div>
   );
 };
 

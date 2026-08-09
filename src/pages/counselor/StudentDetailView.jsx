@@ -13,6 +13,7 @@ import {
   Grid,
   IconButton,
   InputLabel,
+  LinearProgress,
   MenuItem,
   Paper,
   Select,
@@ -49,6 +50,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { Sidebar } from '../../components/layout/Sidebar';
 import counselorService from '../../services/counselorService';
 
 const reviewStatuses = ['NEW', 'UNDER_REVIEW', 'FOLLOW_UP_REQUIRED', 'REFERRED', 'CLOSED'];
@@ -57,10 +59,113 @@ const riskColors = {
   MEDIUM: 'warning',
   HIGH: 'error',
   SEVERE: 'secondary',
+  low: 'success',
+  medium: 'warning',
+  high: 'error',
+  severe: 'secondary',
 };
+const modelOrder = ['profile', 'dass21', 'mood', 'text', 'speech', 'face', 'behavioral'];
+const modelLabels = {
+  profile: 'Profile',
+  dass21: 'DASS-21',
+  mood: 'Mood',
+  text: 'Text',
+  speech: 'Speech',
+  face: 'Face',
+  behavioral: 'Behavioral',
+};
+const DASS21_MAX_SCORE = 126;
 
 const formatDateTime = (value) => (value ? new Date(value).toLocaleString() : 'N/A');
+const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : 'N/A');
 const valueOrNA = (value) => (value === null || value === undefined ? 'N/A' : value);
+const asNumber = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+const boundedPercent = (value) => {
+  const numeric = asNumber(value);
+  if (numeric === null) return null;
+  return Math.max(0, Math.min(100, numeric));
+};
+const riskPercentFromAssessment = (assessment = {}) => {
+  if (!assessment) return null;
+  if (assessment.risk_percentage !== null && assessment.risk_percentage !== undefined) {
+    return boundedPercent(assessment.risk_percentage);
+  }
+  if (assessment.final_score !== null && assessment.final_score !== undefined) {
+    return boundedPercent(assessment.final_score);
+  }
+  if (assessment.final_probability !== null && assessment.final_probability !== undefined) {
+    return boundedPercent(Number(assessment.final_probability) * 100);
+  }
+  if (assessment.model_score !== null && assessment.model_score !== undefined) {
+    const score = Number(assessment.model_score);
+    return boundedPercent(score <= 1 ? score * 100 : score);
+  }
+  return null;
+};
+const riskPercentFromEvidence = (evidence = {}) => {
+  if (evidence.risk_percentage !== null && evidence.risk_percentage !== undefined) {
+    return boundedPercent(evidence.risk_percentage);
+  }
+  if (evidence.score_0_100 !== null && evidence.score_0_100 !== undefined) {
+    return boundedPercent(evidence.score_0_100);
+  }
+  if (evidence.probability !== null && evidence.probability !== undefined) {
+    return boundedPercent(Number(evidence.probability) * 100);
+  }
+  return null;
+};
+const riskPercentFromDass = (assessment = {}) => {
+  if (!assessment) return null;
+  if (assessment.risk_percentage !== null && assessment.risk_percentage !== undefined) {
+    return boundedPercent(assessment.risk_percentage);
+  }
+  const total = asNumber(assessment.total_dass21_score);
+  return total === null ? null : boundedPercent((total / DASS21_MAX_SCORE) * 100);
+};
+const formatPercent = (value) => {
+  const numeric = boundedPercent(value);
+  return numeric === null ? 'N/A' : `${numeric.toFixed(1)}%`;
+};
+const formatCompactNumber = (value) => {
+  const numeric = asNumber(value);
+  return numeric === null ? 'N/A' : numeric.toFixed(numeric % 1 === 0 ? 0 : 2);
+};
+const riskColorFromPercent = (value) => {
+  const numeric = boundedPercent(value);
+  if (numeric === null) return 'default';
+  if (numeric >= 75) return 'error';
+  if (numeric >= 50) return 'warning';
+  if (numeric >= 25) return 'info';
+  return 'success';
+};
+const averagePercent = (values) => {
+  const present = values.map(boundedPercent).filter((value) => value !== null);
+  if (!present.length) return null;
+  return present.reduce((sum, value) => sum + value, 0) / present.length;
+};
+
+const PercentBar = ({ value, color = 'primary' }) => {
+  const numeric = boundedPercent(value);
+  const progressColor = ['primary', 'secondary', 'error', 'info', 'success', 'warning', 'inherit'].includes(color)
+    ? color
+    : 'inherit';
+  return (
+    <Box sx={{ minWidth: 120 }}>
+      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+        {formatPercent(numeric)}
+      </Typography>
+      <LinearProgress
+        variant="determinate"
+        color={numeric === null ? 'inherit' : progressColor}
+        value={numeric || 0}
+        sx={{ mt: 0.5, height: 7, borderRadius: 999 }}
+      />
+    </Box>
+  );
+};
 
 const TabPanel = ({ children, value, index }) => (
   <Box role="tabpanel" hidden={value !== index} sx={{ pt: 2 }}>
@@ -123,10 +228,158 @@ const StudentDetailView = () => {
     detail.assessments?.forEach((assessment) => {
       const key = assessment.created_at?.slice(0, 10);
       if (!key) return;
-      byDate[key] = { ...(byDate[key] || { date: key }), fusion: assessment.final_score ?? assessment.model_score };
+      byDate[key] = {
+        ...(byDate[key] || { date: key }),
+        fusion: riskPercentFromAssessment(assessment),
+        riskStatus: assessment.risk_level || assessment.model_risk_level || 'UNKNOWN',
+      };
+    });
+    detail.dass21_assessments?.forEach((assessment) => {
+      const key = assessment.created_at?.slice(0, 10);
+      if (!key) return;
+      byDate[key] = {
+        ...(byDate[key] || { date: key }),
+        dass21Risk: riskPercentFromDass(assessment),
+      };
     });
     return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
   }, [detail]);
+
+  const modelSummaryData = useMemo(() => {
+    if (!detail) return [];
+    const apiRows = detail.model_component_summary || [];
+    if (apiRows.length) {
+      const byModality = new Map(apiRows.map((row) => [row.modality, row]));
+      return modelOrder.map((modality) => {
+        const row = byModality.get(modality) || {};
+        return {
+          modality,
+          label: row.label || modelLabels[modality],
+          status: row.status || 'missing',
+          riskPercentage: boundedPercent(row.risk_percentage ?? row.component_percentage),
+          contributionPercentage: boundedPercent(row.contribution_percentage),
+          baseWeightPercentage: boundedPercent(row.base_weight_percentage),
+          weightPercentage: boundedPercent(row.effective_weight_percentage),
+          included: Boolean(row.included),
+          sourceTimestamp: row.source_timestamp || row.generated_at,
+          reason: row.reason,
+        };
+      });
+    }
+
+    const latestByModality = new Map();
+    detail.modality_evidence?.forEach((evidence) => {
+      if (!latestByModality.has(evidence.modality)) {
+        latestByModality.set(evidence.modality, evidence);
+      }
+    });
+    return modelOrder.map((modality) => {
+      const evidence = latestByModality.get(modality);
+      const fallbackDass = modality === 'dass21' ? detail.dass21_assessments?.[0] : null;
+      return {
+        modality,
+        label: modelLabels[modality],
+        status: evidence?.status || 'missing',
+        riskPercentage: riskPercentFromEvidence(evidence) ?? riskPercentFromDass(fallbackDass),
+        contributionPercentage: null,
+        baseWeightPercentage: null,
+        weightPercentage: null,
+        included: false,
+        sourceTimestamp: evidence?.source_timestamp || evidence?.generated_at || fallbackDass?.created_at,
+        reason: evidence ? 'not_in_latest_fusion' : 'missing',
+      };
+    });
+  }, [detail]);
+
+  const latestSpeechEvidence = useMemo(() => {
+    const evidence = detail?.modality_evidence?.find((item) => item.modality === 'speech');
+    if (!evidence) return null;
+    const metadata = evidence.metadata || {};
+    const rawOutput = evidence.raw_output || {};
+    return {
+      status: evidence.status || 'missing',
+      analyzedAt: evidence.generated_at || evidence.source_timestamp,
+      emotion: metadata.emotion_label || rawOutput.emotion_label || evidence.label,
+      confidence: evidence.confidence ?? rawOutput.confidence,
+      confidenceBand: metadata.confidence_band || 'unknown',
+      dataQuality: evidence.data_quality_status || metadata.data_quality_status || 'not_evaluated',
+      modelVersion: evidence.model_version || metadata.model_version,
+      technicalStatus: metadata.technical_status || evidence.status || 'not_verified',
+      fusionStatus: metadata.fusion_status || 'excluded',
+      limitation: metadata.limitation,
+    };
+  }, [detail]);
+
+  const dailyModalityRows = useMemo(() => {
+    if (!detail) return [];
+    const byDate = {};
+    const ensureDate = (dateKey) => {
+      if (!byDate[dateKey]) byDate[dateKey] = { date: dateKey, modalities: {} };
+      return byDate[dateKey];
+    };
+
+    detail.modality_evidence?.forEach((evidence) => {
+      const key = (evidence.source_timestamp || evidence.generated_at)?.slice(0, 10);
+      if (!key || !evidence.modality) return;
+      const row = ensureDate(key);
+      if (row.modalities[evidence.modality] === undefined) {
+        row.modalities[evidence.modality] = riskPercentFromEvidence(evidence);
+      }
+    });
+
+    detail.dass21_assessments?.forEach((assessment) => {
+      const key = assessment.created_at?.slice(0, 10);
+      if (!key) return;
+      const row = ensureDate(key);
+      if (row.modalities.dass21 === undefined) {
+        row.modalities.dass21 = riskPercentFromDass(assessment);
+      }
+    });
+
+    detail.assessments?.forEach((assessment) => {
+      const key = assessment.created_at?.slice(0, 10);
+      if (!key) return;
+      const row = ensureDate(key);
+      row.overallRisk = riskPercentFromAssessment(assessment);
+      row.riskStatus = assessment.risk_level || assessment.model_risk_level || 'UNKNOWN';
+    });
+
+    return Object.values(byDate)
+      .map((row) => ({
+        ...row,
+        averageModelRisk: averagePercent(modelOrder.map((modality) => row.modalities[modality])),
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [detail]);
+
+  const riskStatusData = useMemo(() => {
+    if (!detail) return [];
+    const counts = {};
+    detail.assessments?.forEach((assessment) => {
+      const statusValue = assessment.risk_level || assessment.model_risk_level || 'UNKNOWN';
+      counts[statusValue] = (counts[statusValue] || 0) + 1;
+    });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }, [detail]);
+
+  const riskTrendData = useMemo(() => {
+    const byDate = new Map(trendData.map((row) => [row.date, { ...row }]));
+    dailyModalityRows.forEach((row) => {
+      const current = byDate.get(row.date) || { date: row.date };
+      byDate.set(row.date, {
+        ...current,
+        overallRisk: row.overallRisk ?? current.fusion,
+        averageModelRisk: row.averageModelRisk,
+        riskStatus: row.riskStatus || current.riskStatus,
+      });
+    });
+    return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+  }, [dailyModalityRows, trendData]);
+
+  const latestDassRisk = useMemo(
+    () => riskPercentFromDass(detail?.dass21_assessments?.[0]),
+    [detail]
+  );
 
   const completionData = useMemo(() => {
     if (!detail) return [];
@@ -205,8 +458,17 @@ const StudentDetailView = () => {
     }
   };
 
+  const renderCounselorShell = (content) => (
+    <div className="student-shell">
+      <Sidebar variant="counselor" />
+      <main className="student-main">
+        {content}
+      </main>
+    </div>
+  );
+
   if (loading) {
-    return (
+    return renderCounselorShell(
       <Box sx={{ minHeight: '70vh', display: 'grid', placeItems: 'center' }}>
         <CircularProgress />
       </Box>
@@ -214,7 +476,7 @@ const StudentDetailView = () => {
   }
 
   if (!detail) {
-    return (
+    return renderCounselorShell(
       <Container maxWidth="lg" sx={{ py: 3 }}>
         <Alert severity="error">{error || 'Student detail is unavailable.'}</Alert>
       </Container>
@@ -222,10 +484,12 @@ const StudentDetailView = () => {
   }
 
   const student = detail.student || detail.user || {};
-  const latest = detail.latest_assessment || {};
+  const latest = detail.latest_assessment || null;
+  const latestRiskPercentage = riskPercentFromAssessment(latest);
+  const latestRiskStatus = latest ? (latest.risk_level || latest.model_risk_level || 'Not yet evaluated') : 'Not yet evaluated';
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    renderCounselorShell(<Container maxWidth="xl" sx={{ py: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 3 }}>
         <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
           <Tooltip title="Back">
@@ -271,10 +535,11 @@ const StudentDetailView = () => {
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {[
-          ['Model Risk', latest.risk_level || latest.model_risk_level || 'UNKNOWN'],
-          ['Fusion Score', valueOrNA(latest.final_score ?? latest.model_score)],
-          ['Evidence Coverage', valueOrNA(latest.evidence_coverage)],
-          ['Coverage Category', latest.coverage_category || 'N/A'],
+          ['Model Risk', latestRiskStatus],
+          ['Final Risk %', formatPercent(latestRiskPercentage)],
+          ['DASS-21 Risk %', formatPercent(latestDassRisk)],
+          ['Evidence Coverage', latest ? formatPercent((latest.evidence_coverage ?? 0) * 100) : 'N/A'],
+          ['Coverage Category', latest?.coverage_category || 'N/A'],
           ['Open Reviews', detail.reviews?.filter((review) => review.status !== 'CLOSED').length || 0],
         ].map(([label, value]) => (
           <Grid item xs={12} sm={6} md={2.4} key={label}>
@@ -304,7 +569,7 @@ const StudentDetailView = () => {
 
         <TabPanel value={tab} index={0}>
           <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={5}>
               <Typography variant="h6" sx={{ mb: 1 }}>
                 Student Summary
               </Typography>
@@ -328,13 +593,119 @@ const StudentDetailView = () => {
                 </Table>
               </TableContainer>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={7}>
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                Latest Risk Summary
+              </Typography>
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={4}>
+                    <Typography variant="body2" color="text.secondary">Final risk percentage</Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 800, mt: 0.5 }}>
+                      {formatPercent(latestRiskPercentage)}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <Typography variant="body2" color="text.secondary">Risk status</Typography>
+                    <Chip
+                      sx={{ mt: 1 }}
+                      label={latestRiskStatus}
+                      color={riskColors[latestRiskStatus] || riskColors[String(latestRiskStatus).toLowerCase()] || 'default'}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <Typography variant="body2" color="text.secondary">Latest DASS-21 risk</Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5 }}>
+                      {formatPercent(latestDassRisk)}
+                    </Typography>
+                  </Grid>
+                </Grid>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="body2" color="text.secondary">
+                  Component percentages show each model signal on a 0-100 risk scale. Contribution percentage is shown when that model was included in the latest fused score.
+                </Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                Voice Emotion Signal
+              </Typography>
+              <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+                {latestSpeechEvidence ? (
+                  <Grid container spacing={1.5}>
+                    {[
+                      ['Status', latestSpeechEvidence.status],
+                      ['Latest analyzed voice date', formatDateTime(latestSpeechEvidence.analyzedAt)],
+                      ['Predicted emotion', latestSpeechEvidence.emotion || 'N/A'],
+                      ['Confidence band', latestSpeechEvidence.confidenceBand],
+                      ['Confidence', latestSpeechEvidence.confidence === null || latestSpeechEvidence.confidence === undefined ? 'N/A' : formatPercent(latestSpeechEvidence.confidence * 100)],
+                      ['Data quality', latestSpeechEvidence.dataQuality],
+                      ['Model version', latestSpeechEvidence.modelVersion || 'N/A'],
+                      ['Technical status', latestSpeechEvidence.technicalStatus],
+                      ['Fusion status', latestSpeechEvidence.fusionStatus],
+                    ].map(([label, value]) => (
+                      <Grid item xs={12} sm={6} md={4} key={label}>
+                        <Typography variant="caption" color="text.secondary">{label}</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{value}</Typography>
+                      </Grid>
+                    ))}
+                    <Grid item xs={12}>
+                      <Alert severity="info" sx={{ mt: 1 }}>
+                        {latestSpeechEvidence.limitation || 'Voice emotion was analyzed, but it is not included in the final fused screening score because the project does not currently have an approved emotion-to-risk mapping.'}
+                      </Alert>
+                    </Grid>
+                  </Grid>
+                ) : (
+                  <Typography color="text.secondary">No student voice-emotion analysis is available.</Typography>
+                )}
+              </Paper>
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                Seven-Model Component Summary
+              </Typography>
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Component</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Risk %</TableCell>
+                      <TableCell>Base Weight</TableCell>
+                      <TableCell>Effective Weight</TableCell>
+                      <TableCell>Contribution %</TableCell>
+                      <TableCell>Latest Evidence</TableCell>
+                      <TableCell>Fusion Use</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {modelSummaryData.map((model) => (
+                      <TableRow key={model.modality}>
+                        <TableCell sx={{ fontWeight: 700 }}>{model.label}</TableCell>
+                        <TableCell>
+                          <Chip size="small" label={model.status} color={model.status === 'succeeded' ? 'success' : 'default'} />
+                        </TableCell>
+                        <TableCell>
+                          <PercentBar value={model.riskPercentage} color={riskColorFromPercent(model.riskPercentage)} />
+                        </TableCell>
+                        <TableCell>{formatPercent(model.baseWeightPercentage)}</TableCell>
+                        <TableCell>{formatPercent(model.weightPercentage)}</TableCell>
+                        <TableCell>{formatPercent(model.contributionPercentage)}</TableCell>
+                        <TableCell>{formatDateTime(model.sourceTimestamp)}</TableCell>
+                        <TableCell>{model.included ? 'Included' : model.reason || 'Not included'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Grid>
+            <Grid item xs={12}>
               <Typography variant="h6" sx={{ mb: 1 }}>
                 Recent Timeline
               </Typography>
-              <Stack spacing={1}>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ overflowX: 'auto', pb: 1 }}>
                 {timeline.slice(0, 6).map((event) => (
-                  <Paper key={`${event.type}-${event.timestamp}-${event.label}`} variant="outlined" sx={{ p: 1.5 }}>
+                  <Paper key={`${event.type}-${event.timestamp}-${event.label}`} variant="outlined" sx={{ p: 1.5, minWidth: 220 }}>
                     <Typography variant="body2" sx={{ fontWeight: 700 }}>
                       {event.label}
                     </Typography>
@@ -356,6 +727,7 @@ const StudentDetailView = () => {
                 <TableRow>
                   <TableCell>Date</TableCell>
                   <TableCell>Risk</TableCell>
+                  <TableCell>Risk %</TableCell>
                   <TableCell>Fusion</TableCell>
                   <TableCell>Model Score</TableCell>
                   <TableCell>Evidence</TableCell>
@@ -373,8 +745,9 @@ const StudentDetailView = () => {
                         color={riskColors[assessment.risk_level || assessment.model_risk_level] || 'default'}
                       />
                     </TableCell>
-                    <TableCell>{valueOrNA(assessment.final_score)}</TableCell>
-                    <TableCell>{valueOrNA(assessment.model_score)}</TableCell>
+                    <TableCell>{formatPercent(riskPercentFromAssessment(assessment))}</TableCell>
+                    <TableCell>{formatCompactNumber(assessment.final_score)}</TableCell>
+                    <TableCell>{formatCompactNumber(assessment.model_score)}</TableCell>
                     <TableCell>{valueOrNA(assessment.evidence_coverage)}</TableCell>
                     <TableCell>{assessment.screening_only ? 'Yes' : 'No'}</TableCell>
                   </TableRow>
@@ -395,6 +768,7 @@ const StudentDetailView = () => {
                   <TableCell>Anxiety</TableCell>
                   <TableCell>Stress</TableCell>
                   <TableCell>Total</TableCell>
+                  <TableCell>Risk %</TableCell>
                   <TableCell>Complete</TableCell>
                 </TableRow>
               </TableHead>
@@ -406,6 +780,13 @@ const StudentDetailView = () => {
                     <TableCell>{assessment.anxiety_score}</TableCell>
                     <TableCell>{assessment.stress_score}</TableCell>
                     <TableCell>{assessment.total_dass21_score}</TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={formatPercent(riskPercentFromDass(assessment))}
+                        color={riskColorFromPercent(riskPercentFromDass(assessment))}
+                      />
+                    </TableCell>
                     <TableCell>{assessment.is_complete ? 'Yes' : 'No'}</TableCell>
                   </TableRow>
                 ))}
@@ -415,6 +796,57 @@ const StudentDetailView = () => {
         </TabPanel>
 
         <TabPanel value={tab} index={2}>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            Daily Modality Risk Matrix
+          </Typography>
+          <TableContainer sx={{ mb: 3 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Date</TableCell>
+                  {modelOrder.map((modality) => (
+                    <TableCell key={modality}>{modelLabels[modality]}</TableCell>
+                  ))}
+                  <TableCell>Overall Risk %</TableCell>
+                  <TableCell>Status</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {dailyModalityRows.map((row) => (
+                  <TableRow key={row.date}>
+                    <TableCell sx={{ fontWeight: 700 }}>{formatDate(row.date)}</TableCell>
+                    {modelOrder.map((modality) => (
+                      <TableCell key={modality}>
+                        <Chip
+                          size="small"
+                          label={formatPercent(row.modalities[modality])}
+                          color={riskColorFromPercent(row.modalities[modality])}
+                          variant={row.modalities[modality] === undefined ? 'outlined' : 'filled'}
+                        />
+                      </TableCell>
+                    ))}
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={formatPercent(row.overallRisk)}
+                        color={riskColorFromPercent(row.overallRisk)}
+                        variant={row.overallRisk === undefined ? 'outlined' : 'filled'}
+                      />
+                    </TableCell>
+                    <TableCell>{row.riskStatus || 'N/A'}</TableCell>
+                  </TableRow>
+                ))}
+                {dailyModalityRows.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={modelOrder.length + 3}>No modality evidence yet.</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            Prediction Evidence Log
+          </Typography>
           <TableContainer>
             <Table size="small">
               <TableHead>
@@ -424,22 +856,30 @@ const StudentDetailView = () => {
                   <TableCell>Status</TableCell>
                   <TableCell>Score</TableCell>
                   <TableCell>Probability</TableCell>
+                  <TableCell>Risk %</TableCell>
                   <TableCell>Confidence</TableCell>
+                  <TableCell>Overall Risk %</TableCell>
                   <TableCell>Boundary</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {detail.modality_evidence?.map((evidence) => (
-                  <TableRow key={evidence.id}>
-                    <TableCell>{formatDateTime(evidence.generated_at)}</TableCell>
-                    <TableCell>{evidence.modality}</TableCell>
-                    <TableCell>{evidence.status}</TableCell>
-                    <TableCell>{valueOrNA(evidence.score_0_100)}</TableCell>
-                    <TableCell>{valueOrNA(evidence.probability)}</TableCell>
-                    <TableCell>{valueOrNA(evidence.confidence)}</TableCell>
-                    <TableCell>{evidence.clinical_use_boundary}</TableCell>
-                  </TableRow>
-                ))}
+                {detail.modality_evidence?.map((evidence) => {
+                  const evidenceDate = (evidence.source_timestamp || evidence.generated_at)?.slice(0, 10);
+                  const sameDay = dailyModalityRows.find((row) => row.date === evidenceDate);
+                  return (
+                    <TableRow key={evidence.id}>
+                      <TableCell>{formatDateTime(evidence.generated_at)}</TableCell>
+                      <TableCell>{modelLabels[evidence.modality] || evidence.modality}</TableCell>
+                      <TableCell>{evidence.status}</TableCell>
+                      <TableCell>{formatCompactNumber(evidence.score_0_100)}</TableCell>
+                      <TableCell>{formatCompactNumber(evidence.probability)}</TableCell>
+                      <TableCell>{formatPercent(riskPercentFromEvidence(evidence))}</TableCell>
+                      <TableCell>{formatCompactNumber(evidence.confidence)}</TableCell>
+                      <TableCell>{formatPercent(sameDay?.overallRisk)}</TableCell>
+                      <TableCell>{evidence.clinical_use_boundary}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>
@@ -447,21 +887,62 @@ const StudentDetailView = () => {
 
         <TabPanel value={tab} index={3}>
           <Grid container spacing={2}>
+            <Grid item xs={12} md={3}>
+              <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+                <Typography variant="body2" color="text.secondary">Latest overall risk</Typography>
+                <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+                  {formatPercent(latestRiskPercentage)}
+                </Typography>
+                <Chip
+                  size="small"
+                  sx={{ mt: 1 }}
+                  label={latestRiskStatus}
+                  color={riskColors[latestRiskStatus] || riskColors[String(latestRiskStatus).toLowerCase()] || 'default'}
+                />
+              </Paper>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+                <Typography variant="body2" color="text.secondary">Latest DASS-21 risk</Typography>
+                <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+                  {formatPercent(latestDassRisk)}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">From overall DASS-21 percentage</Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+                <Typography variant="body2" color="text.secondary">Average model signal</Typography>
+                <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+                  {formatPercent(averagePercent(modelSummaryData.map((model) => model.riskPercentage)))}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">Latest available components</Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+                <Typography variant="body2" color="text.secondary">Risk records</Typography>
+                <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+                  {detail.assessments?.length || 0}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">Fused assessments</Typography>
+              </Paper>
+            </Grid>
             <Grid item xs={12} lg={8}>
               <Paper variant="outlined" sx={{ p: 2, height: 360 }}>
                 <Typography variant="h6" sx={{ mb: 2 }}>
-                  Mood, Stress, and Fusion
+                  Risk Percentage Trend
                 </Typography>
                 <ResponsiveContainer width="100%" height="82%">
-                  <LineChart data={trendData}>
+                  <LineChart data={riskTrendData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
-                    <YAxis />
+                    <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
                     <ChartTooltip />
                     <Legend />
-                    <Line type="monotone" dataKey="mood" stroke="#1976d2" strokeWidth={2} />
-                    <Line type="monotone" dataKey="stress" stroke="#ed6c02" strokeWidth={2} />
-                    <Line type="monotone" dataKey="fusion" stroke="#7b1fa2" strokeWidth={2} />
+                    <Line type="monotone" name="Overall Risk %" dataKey="overallRisk" stroke="#c62828" strokeWidth={2.5} connectNulls />
+                    <Line type="monotone" name="DASS-21 Risk %" dataKey="dass21Risk" stroke="#1565c0" strokeWidth={2} connectNulls />
+                    <Line type="monotone" name="Average Model Risk %" dataKey="averageModelRisk" stroke="#2e7d32" strokeWidth={2} connectNulls />
                   </LineChart>
                 </ResponsiveContainer>
               </Paper>
@@ -469,15 +950,47 @@ const StudentDetailView = () => {
             <Grid item xs={12} lg={4}>
               <Paper variant="outlined" sx={{ p: 2, height: 360 }}>
                 <Typography variant="h6" sx={{ mb: 2 }}>
-                  Assessment Completion
+                  Latest Component Risk %
                 </Typography>
                 <ResponsiveContainer width="100%" height="82%">
+                  <BarChart data={modelSummaryData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="label" interval={0} angle={-25} textAnchor="end" height={72} />
+                    <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                    <ChartTooltip />
+                    <Bar name="Risk %" dataKey="riskPercentage" fill="#1565c0" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} lg={6}>
+              <Paper variant="outlined" sx={{ p: 2, height: 320 }}>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  Risk Status Distribution
+                </Typography>
+                <ResponsiveContainer width="100%" height="80%">
+                  <BarChart data={riskStatusData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis allowDecimals={false} />
+                    <ChartTooltip />
+                    <Bar name="Assessments" dataKey="value" fill="#6a1b9a" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} lg={6}>
+              <Paper variant="outlined" sx={{ p: 2, height: 320 }}>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  Evidence Volume
+                </Typography>
+                <ResponsiveContainer width="100%" height="80%">
                   <BarChart data={completionData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
                     <YAxis allowDecimals={false} />
                     <ChartTooltip />
-                    <Bar dataKey="value" fill="#1976d2" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="value" fill="#00897b" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </Paper>
@@ -663,7 +1176,7 @@ const StudentDetailView = () => {
           </Grid>
         </TabPanel>
       </Paper>
-    </Container>
+    </Container>)
   );
 };
 

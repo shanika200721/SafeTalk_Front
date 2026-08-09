@@ -7,7 +7,12 @@ export const STUDENT_USER_KEY = 'safetalk_student_user';
 export const LEGACY_USER_ROLE_KEY = 'user_role';
 export const STUDENT_USER_ROLE_KEY = 'safetalk_student_user_role';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const localApiBaseUrl =
+  typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname)
+    ? `http://${window.location.hostname}:8001`
+    : 'http://localhost:8000';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || localApiBaseUrl;
 
 export const getStoredToken = () => localStorage.getItem(STUDENT_ACCESS_TOKEN_KEY) || localStorage.getItem(LEGACY_ACCESS_TOKEN_KEY);
 

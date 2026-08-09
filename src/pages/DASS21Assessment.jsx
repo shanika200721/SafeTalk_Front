@@ -21,16 +21,13 @@ import {
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import Assessment from '@mui/icons-material/Assessment';
 import CheckCircle from '@mui/icons-material/CheckCircle';
-import EditIcon from '@mui/icons-material/Edit';
 import History from '@mui/icons-material/History';
 import Psychology from '@mui/icons-material/Psychology';
 import RestartAlt from '@mui/icons-material/RestartAlt';
 import Save from '@mui/icons-material/Save';
 import { useNavigate } from 'react-router-dom';
 import { Sidebar } from '../components/layout/Sidebar';
-import { EmergencySOS } from '../components/common/EmergencySOS';
 import api from '../services/api';
-import { getModalityAvailability } from '../services/modalityService';
 
 const questions = [
   'I found myself getting upset by quite trivial things.',
@@ -74,7 +71,6 @@ const DASS21Assessment = () => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
-  const [modalityAvailability, setModalityAvailability] = useState([]);
 
   useEffect(() => {
     const loadAssessments = async () => {
@@ -99,14 +95,7 @@ const DASS21Assessment = () => {
           });
           setHistory(historyResponse.data.assessments || []);
         } catch (err) {
-          console.error('Error loading history:', err);
-        }
-
-        try {
-          const availabilityResponse = await getModalityAvailability();
-          setModalityAvailability(availabilityResponse.modalities || []);
-        } catch (err) {
-          console.error('Error loading modality availability:', err);
+          console.error('Error loading DASS-21 history:', err);
         }
       } catch (err) {
         console.error('Error loading assessments:', err);
@@ -127,43 +116,6 @@ const DASS21Assessment = () => {
     newResponses[index] = parseInt(value, 10);
     setResponses(newResponses);
   };
-
-  const getSeverityLevel = (score, type) => {
-    const severities = {
-      depression: {
-        normal: [0, 9],
-        mild: [10, 13],
-        moderate: [14, 20],
-        severe: [21, 27],
-        very_severe: [28, 126],
-      },
-      anxiety: {
-        normal: [0, 7],
-        mild: [8, 9],
-        moderate: [10, 14],
-        severe: [15, 19],
-        very_severe: [20, 126],
-      },
-      stress: {
-        normal: [0, 14],
-        mild: [15, 18],
-        moderate: [19, 25],
-        severe: [26, 33],
-        very_severe: [34, 126],
-      },
-    };
-
-    const severityMap = severities[type];
-    for (const [level, range] of Object.entries(severityMap)) {
-      if (score >= range[0] && score <= range[1]) {
-        return level.replace('_', ' ').toUpperCase();
-      }
-    }
-    return 'VERY SEVERE';
-  };
-
-  const getSeverityClass = (severity) =>
-    `student-dass-severity-${severity.toLowerCase().replace(/\s+/g, '-')}`;
 
   const handleSubmit = async () => {
     if (!isComplete) {
@@ -198,7 +150,7 @@ const DASS21Assessment = () => {
         });
         setHistory(historyResponse.data.assessments || []);
       } catch (err) {
-        console.error('Error refreshing history:', err);
+        console.error('Error refreshing DASS-21 history:', err);
       }
     } catch (err) {
       console.error('DASS21 error:', err);
@@ -210,14 +162,6 @@ const DASS21Assessment = () => {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const handleEditHistory = (assessment) => {
-    setResponses(assessment.responses);
-    setEditingId(assessment.id);
-    setResult(null);
-    setSuccess('');
-    setError('');
   };
 
   const handleStartNew = () => {
@@ -237,18 +181,12 @@ const DASS21Assessment = () => {
       minute: '2-digit',
     });
 
-  const inactiveModalities = modalityAvailability.filter(
-    (item) => ['text', 'speech', 'face', 'behavioral'].includes(item.modality)
-      && item.runtime_model_active === false
-  );
-
   const renderStudentShell = (content) => (
     <div className="student-shell">
       <Sidebar />
       <main className="student-main">
         <div className="student-page student-dass-page">
           {content}
-          <EmergencySOS />
         </div>
       </main>
     </div>
@@ -276,22 +214,41 @@ const DASS21Assessment = () => {
     </div>
   );
 
-  const SeverityCard = ({ label, score, type }) => {
-    const severity = getSeverityLevel(score, type);
+  const StudentFriendlySummary = () => (
+    <Card className="student-dass-card student-dass-private-summary">
+      <CardContent>
+        <div className="student-dass-section-head">
+          <span className="student-dass-card-icon">
+            <CheckCircle />
+          </span>
+          <div>
+            <Typography className="student-dass-section-title">
+              Thank you for completing the self test
+            </Typography>
+            <Typography className="student-dass-muted">
+              Your responses have been saved securely. Your counselor can review
+              the details and use them to plan supportive follow-up if needed.
+            </Typography>
+          </div>
+        </div>
 
-    return (
-      <Card className="student-dass-score-card">
-        <CardContent>
-          <Typography className="student-dass-score-label">{label}</Typography>
-          <Typography className="student-dass-score-value">{score}</Typography>
-          <Chip
-            label={severity}
-            className={`student-dass-chip ${getSeverityClass(severity)}`}
-          />
-        </CardContent>
-      </Card>
-    );
-  };
+        <div className="student-dass-friendly-list">
+          <div>
+            <strong>Submitted</strong>
+            <span>{formatDate(result.created_at)}</span>
+          </div>
+          <div>
+            <strong>What happens next</strong>
+            <span>
+              You do not need to interpret any scores here. A counselor will see
+              the assessment information and can discuss it with you in a safe,
+              supportive way.
+            </span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   const HistoryTable = () => (
     <Card className="student-dass-card">
@@ -302,17 +259,17 @@ const DASS21Assessment = () => {
           </span>
           <div>
             <Typography className="student-dass-section-title">
-              Previous DASS-21 Results
+              DASS-21 History
             </Typography>
             <Typography className="student-dass-muted">
-              Review your submitted self-test history.
+              Your completed self tests are listed here without scores.
             </Typography>
           </div>
         </div>
 
         {history.length === 0 ? (
           <div className="student-dass-empty">
-            <Typography>No previous DASS-21 results available.</Typography>
+            <Typography>No completed DASS-21 self tests yet.</Typography>
           </div>
         ) : (
           <TableContainer className="student-dass-table-wrap">
@@ -320,38 +277,21 @@ const DASS21Assessment = () => {
               <TableHead>
                 <TableRow>
                   <TableCell>Date</TableCell>
-                  <TableCell align="right">Depression</TableCell>
-                  <TableCell align="right">Anxiety</TableCell>
-                  <TableCell align="right">Stress</TableCell>
-                  <TableCell align="center">Total</TableCell>
-                  <TableCell align="center">Action</TableCell>
+                  <TableCell>Filled Assignment</TableCell>
+                  <TableCell align="center">Status</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {history.map((assessment, idx) => (
-                  <TableRow key={assessment.id || idx} hover>
+                {history.map((assessment) => (
+                  <TableRow key={assessment.id} hover>
                     <TableCell>
                       <div className="student-dass-date-cell">
                         <span>{formatDate(assessment.created_at)}</span>
-                        {idx === 0 && <Chip label="Latest" size="small" />}
                       </div>
                     </TableCell>
-                    <TableCell align="right">{assessment.depression_score}</TableCell>
-                    <TableCell align="right">{assessment.anxiety_score}</TableCell>
-                    <TableCell align="right">{assessment.stress_score}</TableCell>
-                    <TableCell align="center" className="student-dass-total-cell">
-                      {assessment.total_dass21_score}
-                    </TableCell>
+                    <TableCell>DASS-21 Self Test</TableCell>
                     <TableCell align="center">
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={<EditIcon />}
-                        onClick={() => handleEditHistory(assessment)}
-                        className="student-dass-secondary-action"
-                      >
-                        Edit
-                      </Button>
+                      <Chip label="Submitted" size="small" color="success" />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -379,11 +319,11 @@ const DASS21Assessment = () => {
 
         <section className="student-dass-hero student-dass-hero-results">
           <div>
-            <p className="student-dass-eyebrow">Assessment Results</p>
-            <h1>Your DASS-21 Summary</h1>
+            <p className="student-dass-eyebrow">Self Test Submitted</p>
+            <h1>Your DASS-21 Is Saved</h1>
             <p>
-              Your latest scores are saved and available for discussion with your
-              counselor.
+              Thank you for taking a moment to check in. Your counselor can
+              review the assessment details privately.
             </p>
           </div>
           <CheckCircle className="student-dass-hero-icon" />
@@ -391,71 +331,13 @@ const DASS21Assessment = () => {
 
         {success && <Alert severity="success">{success}</Alert>}
 
-        <div className="student-dass-score-grid">
-          <SeverityCard
-            label="Depression"
-            score={result.depression_score}
-            type="depression"
-          />
-          <SeverityCard label="Anxiety" score={result.anxiety_score} type="anxiety" />
-          <SeverityCard label="Stress" score={result.stress_score} type="stress" />
-        </div>
-
-        <Card className="student-dass-total-card">
-          <CardContent>
-            <div className="student-dass-total-head">
-              <div>
-                <Typography className="student-dass-total-label">
-                  Total DASS-21 Score
-                </Typography>
-                <Typography className="student-dass-total-value">
-                  {result.total_dass21_score} / 126
-                </Typography>
-              </div>
-              <Chip label={formatDate(result.created_at)} />
-            </div>
-            <LinearProgress
-              variant="determinate"
-              value={(result.total_dass21_score / 126) * 100}
-              className="student-dass-progress"
-            />
-          </CardContent>
-        </Card>
+        <StudentFriendlySummary />
 
         <Alert severity="info" className="student-dass-alert">
-          DASS-21 is a screening tool, not a diagnosis. Share these results with
-          your counselor for proper interpretation and support planning.
+          This self test is a wellbeing screening tool, not a diagnosis. If you
+          feel unsafe or need urgent help, use the support button or contact
+          emergency services immediately.
         </Alert>
-
-        {result.metadata && (
-          <Alert severity="info" className="student-dass-alert">
-            <div className="student-dass-date-cell">
-              <Chip label="Rule-based" size="small" />
-              <Chip
-                label={`Scoring ${result.metadata.scoring_version || 'unversioned'}`}
-                size="small"
-              />
-              <Chip
-                label={`Mapping ${result.metadata.item_mapping_version || 'unversioned'}`}
-                size="small"
-              />
-            </div>
-          </Alert>
-        )}
-
-        {inactiveModalities.length > 0 && (
-          <Alert severity="warning" className="student-dass-alert">
-            <div className="student-dass-date-cell">
-              {inactiveModalities.map((item) => (
-                <Chip
-                  key={item.modality}
-                  label={`${item.modality}: unavailable`}
-                  size="small"
-                />
-              ))}
-            </div>
-          </Alert>
-        )}
 
         <div className="student-dass-actions">
           <Button
@@ -579,6 +461,8 @@ const DASS21Assessment = () => {
                 : 'Complete All Questions'}
         </Button>
       </div>
+
+      <HistoryTable />
     </>
   );
 };
