@@ -431,8 +431,10 @@
   color: #8390a3;
 }
 
-.register-input-wrap input {
+.register-input-wrap input,
+.register-input-wrap select {
   min-width: 0;
+  width: 100%;
   border: 0;
   outline: 0;
   background: transparent;
@@ -441,7 +443,13 @@
   font-weight: 600;
 }
 
-.register-input-wrap input::placeholder {
+.register-input-wrap select {
+  appearance: none;
+  cursor: pointer;
+}
+
+.register-input-wrap input::placeholder,
+.register-input-wrap select:invalid {
   color: #98a5b6;
   font-weight: 500;
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Box, Button, Container, FormControl, InputLabel, MenuItem, Paper, Select, Stack, Typography } from '@mui/material';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import CameraAlt from '@mui/icons-material/CameraAlt';
@@ -29,6 +29,7 @@ const FacialAnalysis = () => {
   const [message, setMessage] = useState('');
   const [messageSeverity, setMessageSeverity] = useState('success');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const cameraConsentGranted = Boolean(status?.consent?.facial_capture);
   const processingConsentGranted = Boolean(status?.consent?.facial_model_processing);
@@ -42,6 +43,17 @@ const FacialAnalysis = () => {
       : '';
   const legacyGetUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
   const cameraSupported = Boolean(navigator.mediaDevices?.getUserMedia || legacyGetUserMedia);
+  const cameraDisabledReason = useMemo(() => {
+    if (cameraOn) return 'Camera is already on.';
+    if (cameraStarting) return 'Camera is starting.';
+    if (!cameraConsentGranted) return 'Facial capture consent is required before the camera can start.';
+    if (!cameraSupported) return 'Camera access is not supported by this browser.';
+    if (cameraPermission === 'denied') return 'Browser camera permission is blocked for this site.';
+    if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      return 'Camera access requires a secure browser context.';
+    }
+    return '';
+  }, [cameraConsentGranted, cameraOn, cameraPermission, cameraStarting, cameraSupported]);
 
   const stopCamera = () => {
     if (streamRef.current) {
@@ -262,13 +274,28 @@ const FacialAnalysis = () => {
       setError('You do not have permission or the required consent.');
       return;
     }
-    const response = await predictFace({
-      source_reference_id: `browser-capture-${Date.now()}`,
-      image_data_url: captureUrl,
-    });
-    setMessageSeverity('success');
-    setMessage(response.failure_message_safe || 'Facial check-in submitted.');
-    stopCamera();
+    try {
+      setSubmitting(true);
+      setError('');
+      setMessage('');
+      const response = await predictFace({
+        source_reference_id: `browser-capture-${Date.now()}`,
+        image_data_url: captureUrl,
+      });
+      setMessageSeverity(response.status === 'succeeded' ? 'success' : 'info');
+      setMessage(response.failure_message_safe || 'Facial check-in submitted.');
+      stopCamera();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      const safeMessage = typeof detail === 'object'
+        ? detail.message
+        : typeof detail === 'string'
+          ? detail
+          : '';
+      setError(safeMessage || 'Facial check-in could not be completed. Please retry.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const cancel = () => {
@@ -311,6 +338,9 @@ const FacialAnalysis = () => {
               )}
               {message && <Alert severity={messageSeverity}>{message}</Alert>}
               {error && cameraPermission !== 'denied' && <Alert severity="warning">{error}</Alert>}
+              <Alert severity={cameraDisabledReason ? 'warning' : 'info'}>
+                {cameraDisabledReason || `Camera ready. Browser permission state: ${cameraPermission}. Consent ON; analysis remains contextual and non-fusion.`}
+              </Alert>
               {cameraPermission === 'denied' && (
                 <Alert
                   severity="warning"
@@ -373,11 +403,11 @@ const FacialAnalysis = () => {
               </Stack>
 
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <Button startIcon={<CameraAlt />} variant="contained" disabled={!cameraConsentGranted || cameraOn || cameraStarting} onClick={startCamera}>{cameraStarting ? 'Starting...' : 'Start Camera'}</Button>
+                <Button startIcon={<CameraAlt />} variant="contained" disabled={Boolean(cameraDisabledReason)} onClick={startCamera}>{cameraStarting ? 'Starting...' : 'Start Camera'}</Button>
                 <Button startIcon={<StopCircle />} variant="outlined" disabled={!cameraOn} onClick={stopCamera}>Stop Camera</Button>
                 <Button startIcon={<PhotoCamera />} variant="outlined" disabled={!cameraOn} onClick={capture}>Capture</Button>
                 <Button startIcon={<Replay />} variant="outlined" disabled={!captureUrl} onClick={retake}>Retake</Button>
-                <Button variant="contained" disabled={!captureUrl || inactive || !processingConsentGranted} onClick={submit}>Submit</Button>
+                <Button variant="contained" disabled={!captureUrl || inactive || !processingConsentGranted || submitting} onClick={submit}>{submitting ? 'Processing...' : 'Submit'}</Button>
                 <Button variant="text" onClick={cancel}>Cancel</Button>
               </Stack>
             </Stack>

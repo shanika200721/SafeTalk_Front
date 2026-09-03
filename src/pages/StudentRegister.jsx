@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import PsychologyIcon from '@mui/icons-material/Psychology';
@@ -12,6 +12,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 import welcomeGirl from '../assets/welcome-girl.webp';
 import './RegisterFlow.css';
 
@@ -24,10 +25,13 @@ const StudentRegister = () => {
     lastName: '',
     email: '',
     username: '',
+    universityId: '',
     password: '',
     confirmPassword: '',
   });
 
+  const [universities, setUniversities] = useState([]);
+  const [universitiesLoading, setUniversitiesLoading] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
@@ -42,6 +46,31 @@ const StudentRegister = () => {
     }));
   };
 
+  useEffect(() => {
+    let mounted = true;
+    const loadUniversities = async () => {
+      try {
+        const response = await api.get('/api/auth/universities');
+        if (mounted) {
+          setUniversities(response.data.universities || []);
+        }
+      } catch {
+        if (mounted) {
+          setError('Universities could not be loaded. Please try again.');
+        }
+      } finally {
+        if (mounted) {
+          setUniversitiesLoading(false);
+        }
+      }
+    };
+
+    loadUniversities();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -50,8 +79,9 @@ const StudentRegister = () => {
     const lastName = formData.lastName.trim();
     const email = formData.email.trim();
     const username = formData.username.trim();
+    const universityId = Number(formData.universityId);
 
-    if (!firstName || !lastName || !email || !username || !formData.password || !formData.confirmPassword) {
+    if (!firstName || !lastName || !email || !username || !universityId || !formData.password || !formData.confirmPassword) {
       setError('Please fill in all required fields.');
       return;
     }
@@ -75,6 +105,7 @@ const StudentRegister = () => {
         password: formData.password,
         full_name: `${firstName} ${lastName}`,
         role: 'student',
+        university_id: universityId,
       });
 
       if (result.success) {
@@ -231,6 +262,29 @@ const StudentRegister = () => {
                 </span>
               </label>
 
+              <label className="register-field">
+                <span>University</span>
+                <span className="register-input-wrap">
+                  <SchoolIcon aria-hidden="true" />
+                  <select
+                    name="universityId"
+                    value={formData.universityId}
+                    onChange={handleChange}
+                    required
+                    disabled={universitiesLoading || universities.length === 0}
+                  >
+                    <option value="">
+                      {universitiesLoading ? 'Loading universities...' : 'Select your university'}
+                    </option>
+                    {universities.map((university) => (
+                      <option key={university.id} value={university.id}>
+                        {[university.university, university.campus].filter(Boolean).join(' - ')}
+                      </option>
+                    ))}
+                  </select>
+                </span>
+              </label>
+
               <div className="register-two-column">
                 <label className="register-field">
                   <span>Password</span>
@@ -284,7 +338,7 @@ const StudentRegister = () => {
               <button
                 className="register-submit-button"
                 type="submit"
-                disabled={loading || success}
+                disabled={loading || success || universitiesLoading || universities.length === 0}
               >
                 <SchoolIcon />
                 {loading ? 'Registering...' : 'Register'}

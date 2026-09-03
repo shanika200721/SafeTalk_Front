@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Avatar,
@@ -42,6 +42,34 @@ import AuthenticatedAudio from '../components/common/AuthenticatedAudio';
 
 const MAX_RECORDING_SECONDS = Number(import.meta.env.VITE_MAX_VOICE_RECORDING_SECONDS || 90);
 const SRI_LANKA_TIME_ZONE = 'Asia/Colombo';
+const AUDIO_MIME_CANDIDATES = [
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/ogg;codecs=opus',
+  'audio/mp4',
+];
+
+const getSupportedAudioMimeType = () => {
+  if (typeof window === 'undefined' || !window.MediaRecorder) return '';
+  if (typeof window.MediaRecorder.isTypeSupported !== 'function') return 'audio/webm';
+  return AUDIO_MIME_CANDIDATES.find((type) => window.MediaRecorder.isTypeSupported(type)) || '';
+};
+
+const voiceErrorMessage = (err) => {
+  if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return 'Microphone access requires a secure browser context.';
+  }
+  if (err?.name === 'NotAllowedError' || err?.name === 'SecurityError') {
+    return 'Microphone permission was denied. Allow microphone access in the browser site settings, then retry.';
+  }
+  if (err?.name === 'NotFoundError' || err?.name === 'OverconstrainedError') {
+    return 'No microphone is available on this device.';
+  }
+  if (err?.name === 'NotReadableError' || err?.name === 'AbortError') {
+    return 'The browser could not open the microphone. Check whether another app is using it, then retry.';
+  }
+  return 'Voice recording could not start. Check microphone access and try again.';
+};
 
 const parseServerDate = (timestamp) => {
   if (!timestamp) return null;
@@ -74,6 +102,16 @@ const ChatSupport = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [analyzeVoiceTone, setAnalyzeVoiceTone] = useState(false);
   const [voiceState, setVoiceState] = useState('idle');
+  const [voiceConsentGranted, setVoiceConsentGranted] = useState(false);
+  const [voiceConsentLoading, setVoiceConsentLoading] = useState(true);
+  const [micPermission, setMicPermission] = useState('unknown');
+  const [micDevices, setMicDevices] = useState([]);
+  const [micDevicesKnown, setMicDevicesKnown] = useState(false);
+  const [recorderCapability, setRecorderCapability] = useState({
+    supported: false,
+    mimeType: '',
+    reason: 'Checking voice recorder support.',
+  });
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [recordedVoice, setRecordedVoice] = useState(null);
   const [previewPlaying, setPreviewPlaying] = useState(false);
@@ -123,6 +161,79 @@ const ChatSupport = () => {
     setRecordedVoice(null);
     setPreviewPlaying(false);
   }, [recordedVoice]);
+
+  const refreshVoiceConsent = useCallback(async () => {
+    try {
+      setVoiceConsentLoading(true);
+      const response = await api.get('/api/consents');
+      const consent = response.data?.consents?.voice_processing;
+      setVoiceConsentGranted(Boolean(consent?.is_granted));
+    } catch {
+      setVoiceConsentGranted(false);
+    } finally {
+      setVoiceConsentLoading(false);
+    }
+  }, []);
+
+  const refreshVoiceEnvironment = useCallback(async () => {
+    const supported = Boolean(navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
+    if (!supported) {
+      setRecorderCapability({
+        supported: false,
+        mimeType: '',
+        reason: 'Voice recording is not supported in this browser.',
+      });
+      return;
+    }
+
+    const mimeType = getSupportedAudioMimeType();
+    if (!mimeType) {
+      setRecorderCapability({
+        supported: false,
+        mimeType: '',
+        reason: 'This browser does not support an audio format accepted by the app.',
+      });
+      return;
+    }
+
+    setRecorderCapability({
+      supported: true,
+      mimeType,
+      reason: '',
+    });
+
+    if (navigator.permissions?.query) {
+      try {
+        const permission = await navigator.permissions.query({ name: 'microphone' });
+        setMicPermission(permission.state);
+        permission.onchange = () => setMicPermission(permission.state);
+      } catch {
+        setMicPermission('unknown');
+      }
+    }
+
+    if (navigator.mediaDevices?.enumerateDevices) {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        setMicDevices(devices.filter((device) => device.kind === 'audioinput'));
+        setMicDevicesKnown(true);
+      } catch {
+        setMicDevices([]);
+        setMicDevicesKnown(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshVoiceConsent();
+    refreshVoiceEnvironment();
+    const refreshOnFocus = () => {
+      refreshVoiceConsent();
+      refreshVoiceEnvironment();
+    };
+    window.addEventListener('focus', refreshOnFocus);
+    return () => window.removeEventListener('focus', refreshOnFocus);
+  }, [refreshVoiceConsent, refreshVoiceEnvironment]);
 
   useEffect(() => () => {
     discardRecordingRef.current = true;
@@ -312,13 +423,16 @@ const ChatSupport = () => {
 
   const handleStartVoiceMessage = async () => {
     try {
-      if (!selectedConversation) {
-        setError('Select a counselor before recording a voice message.');
-        return;
-      }
-      if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-        setVoiceState('analysis_unavailable');
-        setError('Voice recording is not supported in this browser.');
+      const disabledReason = recorderDisabledReason;
+      if (disabledReason) {
+        if (micPermission === 'denied') {
+          setVoiceState('permission_denied');
+        } else if (micDevicesKnown && micDevices.length === 0) {
+          setVoiceState('microphone_unavailable');
+        } else if (analyzeVoiceTone && !voiceConsentGranted) {
+          setVoiceState('permission_required');
+        }
+        setError(disabledReason);
         return;
       }
       clearRecordedVoice();
@@ -327,8 +441,10 @@ const ChatSupport = () => {
       discardRecordingRef.current = false;
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/wav';
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      setMicPermission('granted');
+      const mimeType = recorderCapability.mimeType || getSupportedAudioMimeType();
+      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const actualMimeType = mediaRecorder.mimeType || mimeType || 'audio/webm';
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -347,14 +463,14 @@ const ChatSupport = () => {
           setVoiceState('idle');
           return;
         }
-        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        const audioBlob = new Blob(audioChunksRef.current, { type: actualMimeType });
         if (!audioBlob.size) {
           setVoiceState('analysis_failed');
           setError('Recording was empty. Please try again.');
           return;
         }
         const audioUrl = URL.createObjectURL(audioBlob);
-        setRecordedVoice({ blob: audioBlob, url: audioUrl, duration: recordingSeconds || 1, mimeType });
+        setRecordedVoice({ blob: audioBlob, url: audioUrl, duration: recordingSeconds || 1, mimeType: actualMimeType });
         setVoiceState('recorded');
       };
 
@@ -375,8 +491,16 @@ const ChatSupport = () => {
       clearRecordingTimer();
       stopMicrophoneTracks();
       setIsRecording(false);
-      setVoiceState('analysis_failed');
-      setError(`Unable to access microphone: ${err.message}`);
+      if (err?.name === 'NotAllowedError' || err?.name === 'SecurityError') {
+        setMicPermission('denied');
+        setVoiceState('permission_denied');
+      } else if (err?.name === 'NotFoundError' || err?.name === 'OverconstrainedError') {
+        setVoiceState('microphone_unavailable');
+      } else {
+        setVoiceState('analysis_failed');
+      }
+      setError(voiceErrorMessage(err));
+      refreshVoiceEnvironment();
     }
   };
 
@@ -419,7 +543,13 @@ const ChatSupport = () => {
   const handleSendRecordedVoice = async () => {
     if (!recordedVoice || !selectedConversation) return;
     const receiverId = selectedConversation.user_id || selectedConversation.id;
-    const extension = recordedVoice.mimeType.includes('webm') ? 'webm' : 'wav';
+    const extension = recordedVoice.mimeType.includes('webm')
+      ? 'webm'
+      : recordedVoice.mimeType.includes('ogg')
+        ? 'ogg'
+        : recordedVoice.mimeType.includes('mp4')
+          ? 'm4a'
+          : 'wav';
     const tempMsgId = Date.now();
     const tempMsg = {
       id: tempMsgId,
@@ -434,6 +564,11 @@ const ChatSupport = () => {
     };
 
     try {
+      if (analyzeVoiceTone && !voiceConsentGranted) {
+        setVoiceState('permission_required');
+        setError('Voice-emotion analysis requires active Voice Messages consent. You can send without analysis or grant consent in Settings.');
+        return;
+      }
       setVoiceState('uploading');
       setSending(true);
       setMessages((prev) => [...prev, tempMsg]);
@@ -465,6 +600,7 @@ const ChatSupport = () => {
                 : 'analysis_unavailable'
       );
       await loadData(false);
+      refreshVoiceConsent();
       setRecordedVoice(null);
       setPreviewPlaying(false);
     } catch (err) {
@@ -529,6 +665,46 @@ const ChatSupport = () => {
     setSelectedConversation(conversation);
     setMobileOpen(false);
   };
+
+  const recorderDisabledReason = useMemo(() => {
+    if (isRecording) return '';
+    if (!selectedConversation) return 'Select a counselor before recording a voice message.';
+    if (sending || voiceState === 'uploading' || voiceState === 'requesting_permission') return 'Voice recorder is busy.';
+    if (recordedVoice) return 'Send, delete, or cancel the current recording before starting another.';
+    if (!recorderCapability.supported) return recorderCapability.reason;
+    if (micPermission === 'denied') return 'Microphone permission is blocked for this site. Allow it in browser settings, then retry.';
+    if (micDevicesKnown && micDevices.length === 0) return 'No microphone is available on this device.';
+    if (analyzeVoiceTone && voiceConsentLoading) return 'Checking Voice Messages consent before analysis.';
+    if (analyzeVoiceTone && !voiceConsentGranted) {
+      return 'Voice-emotion analysis requires active Voice Messages consent. You can send without analysis or grant consent in Settings.';
+    }
+    return '';
+  }, [
+    analyzeVoiceTone,
+    isRecording,
+    micDevices.length,
+    micDevicesKnown,
+    micPermission,
+    recordedVoice,
+    recorderCapability.reason,
+    recorderCapability.supported,
+    selectedConversation,
+    sending,
+    voiceConsentGranted,
+    voiceConsentLoading,
+    voiceState,
+  ]);
+
+  const recorderStatusText = useMemo(() => {
+    if (isRecording) return `Recording voice message... ${recordingSeconds}s / ${MAX_RECORDING_SECONDS}s`;
+    if (recordedVoice) return `Prediction ready to request after upload. Recorded ${recordedVoice.duration}s as ${recordedVoice.mimeType}.`;
+    if (recorderDisabledReason) return recorderDisabledReason;
+    if (voiceState === 'analysis_succeeded') return 'Voice-emotion prediction is available for counselor context only.';
+    if (voiceState === 'analysis_failed') return 'Voice-emotion analysis failed. Retry is available.';
+    if (voiceState === 'analysis_unavailable') return 'Voice-emotion analysis is unavailable. Voice message delivery may still be available.';
+    if (voiceState === 'analysis_pending') return 'Voice-emotion analysis is processing.';
+    return `Voice recorder ready. Browser format: ${recorderCapability.mimeType || 'unknown'}.`;
+  }, [isRecording, recordedVoice, recorderDisabledReason, voiceState, recorderCapability.mimeType, recordingSeconds]);
 
   const renderStudentShell = (content) => (
     <div className="student-shell">
@@ -900,6 +1076,27 @@ const ChatSupport = () => {
               Emotional-tone analysis provides supporting research evidence only and is not a diagnosis.
             </Alert>
 
+            <Alert
+              severity={recorderDisabledReason ? 'warning' : voiceState === 'analysis_failed' ? 'error' : 'info'}
+              sx={{ mb: 1 }}
+              action={(
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {(voiceState === 'permission_denied' || voiceState === 'microphone_unavailable' || voiceState === 'analysis_failed' || recorderDisabledReason) && (
+                    <Button color="inherit" size="small" onClick={refreshVoiceEnvironment}>
+                      Retry
+                    </Button>
+                  )}
+                  {analyzeVoiceTone && !voiceConsentGranted && !voiceConsentLoading && (
+                    <Button color="inherit" size="small" onClick={() => navigate('/settings')}>
+                      Consent
+                    </Button>
+                  )}
+                </div>
+              )}
+            >
+              {recorderStatusText}
+            </Alert>
+
             <FormControlLabel
               control={
                 <Checkbox
@@ -915,6 +1112,9 @@ const ChatSupport = () => {
                 Voice-emotion analysis: {
                   {
                     requesting_permission: 'Requesting microphone permission',
+                    permission_required: 'Consent required',
+                    permission_denied: 'Microphone permission denied',
+                    microphone_unavailable: 'Microphone unavailable',
                     recording: 'Recording',
                     recorded: 'Ready to preview',
                     uploading: 'Uploading',
@@ -929,11 +1129,13 @@ const ChatSupport = () => {
             )}
 
             <div className="student-chat-input-row">
-              <Tooltip title={isRecording ? 'Stop Recording' : 'Record Voice Message'}>
+              <Tooltip title={isRecording ? 'Stop Recording' : recorderDisabledReason || 'Record Voice Message'}>
                 <span>
                   <IconButton
+                    aria-label={isRecording ? 'Stop voice recording' : 'Record voice message'}
+                    aria-describedby="student-chat-recorder-status"
                     onClick={isRecording ? handleStopVoiceMessage : handleStartVoiceMessage}
-                    disabled={!selectedConversation || sending || Boolean(recordedVoice)}
+                    disabled={Boolean(recorderDisabledReason)}
                     className="student-chat-tool-btn"
                   >
                     <MicIcon />
@@ -971,10 +1173,14 @@ const ChatSupport = () => {
                 onClick={handleSendMessage}
                 disabled={sending || !messageText.trim() || isRecording || !selectedConversation}
                 className="student-chat-send"
+                aria-label="Send text message"
               >
                 {sending ? <CircularProgress size={20} /> : <SendIcon />}
               </Button>
             </div>
+            <Typography id="student-chat-recorder-status" variant="caption" sx={{ display: 'block', mt: 1 }}>
+              Microphone permission: {micPermission}; detected microphones: {micDevicesKnown ? micDevices.length : 'unknown'}; voice analysis consent: {voiceConsentLoading ? 'checking' : voiceConsentGranted ? 'granted' : 'not granted'}.
+            </Typography>
           </footer>
 
           <input

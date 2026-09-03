@@ -19,6 +19,7 @@ const adminService = {
   createCounselor: async (payload) => (await api.post('/api/admin/counselors', payload)).data,
   updateCounselor: async (counselorId, payload) => (await api.patch(`/api/admin/counselors/${counselorId}`, payload)).data,
   assignCounselorUniversity: async (counselorId, payload) => (await api.post(`/api/admin/counselors/${counselorId}/university`, payload)).data,
+  transferCounselorStudents: async (counselorId, payload) => (await api.post(`/api/admin/counselors/${counselorId}/transfer-students`, payload)).data,
   deactivateCounselor: async (counselorId) => (await api.delete(`/api/admin/counselors/${counselorId}`)).data,
   getModels: async () => (await api.get('/api/admin/models')).data,
   getModelRuntimeStatus: async () => (await api.get('/api/admin/models/runtime-status')).data,
