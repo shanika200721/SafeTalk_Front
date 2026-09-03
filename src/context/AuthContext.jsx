@@ -100,7 +100,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     setError(null);
     try {
-      const response = await api.post('/api/auth/login', { username, password });
+      const response = await api.post('/api/auth/login', { username: username.trim(), password });
       const data = response.data;
       const nextUser = {
         id: data.user.id,

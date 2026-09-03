@@ -73,7 +73,17 @@ const dateFmt = (value) => (value ? new Date(value).toLocaleString() : 'N/A');
 const readableStatus = (value) => String(value || 'unknown').replaceAll('_', ' ');
 
 const emptyForms = {
-  user: { username: '', email: '', password: 'Password123!', full_name: '', role: 'student', university_id: '' },
+  user: {
+    username: '',
+    email: '',
+    password: 'Password123!',
+    full_name: '',
+    role: 'student',
+    university_id: '',
+    department: '',
+    year_of_study: '',
+    status: 'active',
+  },
   university: { university_name: '', university_code: '', campus_name: '', district: '', counseling_unit_phone: '' },
   counselor: {
     username: '',
@@ -81,6 +91,7 @@ const emptyForms = {
     password: 'Password123!',
     full_name: '',
     university_id: '',
+    professional_title: '',
     qualification: '',
     specialization: '',
     telephone_number: '',
@@ -89,6 +100,8 @@ const emptyForms = {
     available_from: '09:00',
     available_until: '17:00',
   },
+  assignment: { counselor_id: '', assignment_reason: 'Admin assignment' },
+  transfer: { to_counselor_id: '', reason: 'Admin counselor transfer' },
   resource: { title: '', category: 'coping', resource_type: 'article', description: '', url: '' },
   report: { report_type: 'usage_summary' },
 };
@@ -105,6 +118,41 @@ const cleanPayload = (payload) =>
   Object.fromEntries(
     Object.entries(payload).map(([key, value]) => [key, value === '' ? null : value]),
   );
+
+const cleanUniversityPayload = (payload) => ({
+  ...cleanPayload(payload),
+  university_name: payload.university_name.trim(),
+  university_code: payload.university_code.trim(),
+  campus_name: payload.campus_name.trim() || null,
+  district: payload.district.trim() || null,
+  counseling_unit_phone: payload.counseling_unit_phone.trim() || null,
+});
+
+const cleanUserPayload = (payload, editing) => {
+  const clean = cleanPayload({
+    ...payload,
+    full_name: payload.full_name.trim(),
+    email: payload.email.trim(),
+    username: payload.username.trim(),
+    university_id: payload.university_id || null,
+    department: payload.department.trim() || null,
+    year_of_study: payload.year_of_study === '' ? null : Number(payload.year_of_study),
+  });
+  if (editing) {
+    const { username: _username, password: _password, ...updates } = clean;
+    return updates;
+  }
+  return clean;
+};
+
+const counselorUserId = (counselor) => counselor.user_id || counselor.id;
+
+const counselorLabel = (counselor) => {
+  const universityName = counselor.university_name || counselor.university?.university_name || counselor.university?.name;
+  return [counselor.full_name, counselor.professional_title || 'Counselor', universityName].filter(Boolean).join(' - ');
+};
+
+const universityLabel = (item) => item.university_name || item.university?.university_name || item.university?.name || item.university;
 
 const AdminPortal = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -199,10 +247,15 @@ const AdminPortal = () => {
     try {
       setError('');
       if (dialog === 'user') {
-        await adminService.createUser(cleanPayload(form.user));
+        const payload = cleanUserPayload(form.user, editing?.type === 'user');
+        if (editing?.type === 'user') {
+          await adminService.updateUser(editing.id, payload);
+        } else {
+          await adminService.createUser(payload);
+        }
       }
       if (dialog === 'university') {
-        const payload = cleanPayload(form.university);
+        const payload = cleanUniversityPayload(form.university);
         if (editing?.type === 'university') {
           const { university_code: _unused, ...updates } = payload;
           await adminService.updateUniversity(editing.id, updates);
@@ -221,6 +274,18 @@ const AdminPortal = () => {
         } else {
           await adminService.createCounselor(payload);
         }
+      }
+      if (dialog === 'assignment') {
+        await adminService.assignCounselor(editing.id, {
+          counselor_id: Number(form.assignment.counselor_id),
+          assignment_reason: form.assignment.assignment_reason || 'Admin assignment',
+        });
+      }
+      if (dialog === 'transfer') {
+        await adminService.transferCounselorStudents(editing.id, {
+          to_counselor_id: Number(form.transfer.to_counselor_id),
+          reason: form.transfer.reason || 'Admin counselor transfer',
+        });
       }
       if (dialog === 'resource') {
         const payload = cleanPayload(form.resource);
@@ -258,6 +323,26 @@ const AdminPortal = () => {
     setDialog(type);
   };
 
+  const openEditUser = (user) => {
+    setEditing({ type: 'user', id: user.id });
+    setForm({
+      ...emptyForms,
+      user: {
+        ...emptyForms.user,
+        username: user.username || '',
+        email: user.email || '',
+        password: '',
+        full_name: user.full_name || user.name || '',
+        role: user.role || 'student',
+        university_id: user.university_id || '',
+        department: user.department || '',
+        year_of_study: user.year_of_study || '',
+        status: user.status || 'active',
+      },
+    });
+    setDialog('user');
+  };
+
   const openEditUniversity = (item) => {
     setEditing({ type: 'university', id: item.id });
     setForm({
@@ -284,6 +369,7 @@ const AdminPortal = () => {
         password: '',
         full_name: item.full_name || '',
         university_id: item.university_id || '',
+        professional_title: item.professional_title || '',
         qualification: item.qualification || '',
         specialization: item.specialization || '',
         telephone_number: item.telephone_number || '',
@@ -294,6 +380,36 @@ const AdminPortal = () => {
       },
     });
     setDialog('counselor');
+  };
+
+  const openAssignProfessional = (user) => {
+    setEditing({ type: 'assignment', id: user.id, name: user.name });
+    setForm({
+      ...emptyForms,
+      assignment: {
+        counselor_id: user.assigned_counselor_id || '',
+        assignment_reason: user.assigned_counselor ? 'Reassignment by admin' : 'Admin assignment',
+      },
+    });
+    setDialog('assignment');
+  };
+
+  const openTransferStudents = (counselor) => {
+    const target = data.counselors.find((item) => item.active !== false && !item.profile_missing && item.id !== counselor.id);
+    setEditing({
+      type: 'transfer',
+      id: counselor.id,
+      name: counselor.full_name,
+      assignmentCount: counselor.assignment_count || 0,
+    });
+    setForm({
+      ...emptyForms,
+      transfer: {
+        to_counselor_id: target ? target.id : '',
+        reason: 'Admin counselor transfer',
+      },
+    });
+    setDialog('transfer');
   };
 
   const openEditResource = (item) => {
@@ -355,8 +471,8 @@ const AdminPortal = () => {
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
             {activeTab === 'dashboard' && <DashboardView dashboard={data.dashboard} audit={data.audit} />}
             {activeTab === 'universities' && <UniversitiesView universities={data.universities} onCreate={() => openCreate('university')} onEdit={openEditUniversity} onDeactivate={(id) => runAction(() => adminService.deactivateUniversity(id))} />}
-            {activeTab === 'users' && <UsersView users={visibleUsers} counselors={data.counselors} search={search} setSearch={setSearch} onCreate={() => openCreate('user')} onAction={runAction} />}
-            {activeTab === 'counselors' && <CounselorsView counselors={data.counselors} onCreate={() => openCreate('counselor')} onEdit={openEditCounselor} onAction={runAction} />}
+            {activeTab === 'users' && <UsersView users={visibleUsers} counselors={data.counselors} search={search} setSearch={setSearch} onCreate={() => openCreate('user')} onEdit={openEditUser} onAssign={openAssignProfessional} onAction={runAction} />}
+            {activeTab === 'counselors' && <CounselorsView counselors={data.counselors} onCreate={() => openCreate('counselor')} onEdit={openEditCounselor} onTransfer={openTransferStudents} onAction={runAction} />}
             {activeTab === 'models' && <ModelsView models={data.models} runtimeStatus={data.runtimeStatus} onAction={runAction} />}
             {activeTab === 'resources' && <ResourcesView resources={data.resources} onCreate={() => openCreate('resource')} onEdit={openEditResource} onAction={runAction} />}
             {activeTab === 'analytics' && <AnalyticsView statistics={data.statistics} />}
@@ -365,7 +481,7 @@ const AdminPortal = () => {
             {activeTab === 'settings' && <SettingsView settings={data.settings} onAction={runAction} />}
           </Box>
 
-          <AdminDialog dialog={dialog} editing={editing} form={form} setForm={setForm} universities={data.universities} reportTypes={data.reportTypes} onClose={() => { setDialog(null); setEditing(null); }} onSubmit={submitDialog} />
+          <AdminDialog dialog={dialog} editing={editing} form={form} setForm={setForm} universities={data.universities} counselors={data.counselors} reportTypes={data.reportTypes} onClose={() => { setDialog(null); setEditing(null); }} onSubmit={submitDialog} />
         </Box>
       </main>
     </div>
@@ -450,7 +566,7 @@ const UniversitiesView = ({ universities, onCreate, onEdit, onDeactivate }) => (
   </Paper>
 );
 
-const UsersView = ({ users, counselors, search, setSearch, onCreate, onAction }) => (
+const UsersView = ({ users, counselors, search, setSearch, onCreate, onEdit, onAssign, onAction }) => (
   <Paper sx={{ p: 2, borderRadius: 1.5 }}>
     <ToolbarTitle title="User Management">
       <TextField size="small" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search" InputProps={{ startAdornment: <SearchIcon fontSize="small" sx={{ mr: 1 }} /> }} />
@@ -469,12 +585,19 @@ const UsersView = ({ users, counselors, search, setSearch, onCreate, onAction })
           <TableCell>{dateFmt(user.last_login)}</TableCell>
           <TableCell>{fmt(user.assigned_counselor)}</TableCell>
           <TableCell>
+            <Tooltip title="Edit user"><IconButton size="small" onClick={() => onEdit(user)}><EditIcon fontSize="small" /></IconButton></Tooltip>
             <Tooltip title="Activate"><IconButton size="small" onClick={() => onAction(() => adminService.updateUser(user.id, { status: 'active' }))}><CheckCircleIcon fontSize="small" /></IconButton></Tooltip>
             <Tooltip title="Suspend"><IconButton size="small" onClick={() => onAction(() => adminService.updateUser(user.id, { status: 'suspended' }))}><BlockIcon fontSize="small" /></IconButton></Tooltip>
             <Tooltip title="Reset password"><IconButton size="small" onClick={() => onAction(() => adminService.resetPassword(user.id))}><LockResetIcon fontSize="small" /></IconButton></Tooltip>
             <Tooltip title="Resend invitation"><IconButton size="small" onClick={() => onAction(() => adminService.resendInvitation(user.id))}><MailOutlineIcon fontSize="small" /></IconButton></Tooltip>
-            {user.role === 'student' && counselors[0] && (
-              <Tooltip title="Assign counselor"><IconButton size="small" onClick={() => onAction(() => adminService.assignCounselor(user.id, { counselor_id: counselors[0].user_id || counselors[0].id }))}><PersonAddIcon fontSize="small" /></IconButton></Tooltip>
+            {user.role === 'student' && (
+              <Tooltip title={counselors.length ? 'Assign counselor or professional' : 'Create a counselor profile first'}>
+                <span>
+                  <Button size="small" variant="outlined" startIcon={<PersonAddIcon fontSize="small" />} disabled={!counselors.length} onClick={() => onAssign(user)}>
+                    Assign
+                  </Button>
+                </span>
+              </Tooltip>
             )}
           </TableCell>
         </TableRow>
@@ -483,18 +606,19 @@ const UsersView = ({ users, counselors, search, setSearch, onCreate, onAction })
   </Paper>
 );
 
-const CounselorsView = ({ counselors, onCreate, onEdit, onAction }) => (
+const CounselorsView = ({ counselors, onCreate, onEdit, onTransfer, onAction }) => (
   <Paper sx={{ p: 2, borderRadius: 1.5 }}>
     <ToolbarTitle title="Counselor Management">
       <Button startIcon={<AddIcon />} variant="contained" onClick={onCreate}>Create</Button>
     </ToolbarTitle>
-    <CompactTable headers={['Counselor', 'Qualification', 'Specialization', 'University', 'Students Assigned', 'Availability', 'Phone', 'WhatsApp', 'Status', 'Performance', 'Actions']}>
+    <CompactTable headers={['Counselor', 'Title', 'Qualification', 'Specialization', 'University', 'Students Assigned', 'Availability', 'Phone', 'WhatsApp', 'Status', 'Performance', 'Actions']}>
       {counselors.map((item) => (
         <TableRow key={item.id} hover>
           <TableCell>{item.full_name}</TableCell>
+          <TableCell>{fmt(item.professional_title)}</TableCell>
           <TableCell>{fmt(item.qualification)}</TableCell>
           <TableCell>{fmt(item.specialization)}</TableCell>
-          <TableCell>{fmt(item.university_name)}</TableCell>
+          <TableCell>{fmt(universityLabel(item))}</TableCell>
           <TableCell>{fmt(item.assignment_count)}</TableCell>
           <TableCell>{fmt(item.availability_status)}</TableCell>
           <TableCell>{fmt(item.telephone_number)}</TableCell>
@@ -503,7 +627,21 @@ const CounselorsView = ({ counselors, onCreate, onEdit, onAction }) => (
           <TableCell>{item.unresolved_review_count || 0} reviews</TableCell>
           <TableCell>
             <Tooltip title="Edit"><IconButton size="small" onClick={() => onEdit(item)}><EditIcon fontSize="small" /></IconButton></Tooltip>
-            <Tooltip title="Transfer students"><IconButton size="small"><SwapHorizIcon fontSize="small" /></IconButton></Tooltip>
+            <Tooltip title={item.assignment_count ? 'Transfer students' : 'No assigned students to transfer'}>
+              <span>
+                <IconButton
+                  size="small"
+                  disabled={
+                    item.profile_missing
+                    || !item.assignment_count
+                    || counselors.filter((counselor) => counselor.active !== false && !counselor.profile_missing && counselor.id !== item.id).length === 0
+                  }
+                  onClick={() => onTransfer(item)}
+                >
+                  <SwapHorizIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
             <Tooltip title="Deactivate"><IconButton size="small" onClick={() => onAction(() => adminService.deactivateCounselor(item.id))}><BlockIcon fontSize="small" /></IconButton></Tooltip>
           </TableCell>
         </TableRow>
@@ -732,27 +870,56 @@ const StatusChip = ({ value }) => {
   return <Chip size="small" color={color} label={String(value || 'unknown')} />;
 };
 
-const AdminDialog = ({ dialog, editing, form, setForm, universities, reportTypes, onClose, onSubmit }) => (
+const AdminDialog = ({ dialog, editing, form, setForm, universities, counselors = [], reportTypes, onClose, onSubmit }) => (
   <Dialog open={!!dialog} onClose={onClose} fullWidth maxWidth="sm">
-    <DialogTitle>{dialog ? `${editing ? 'Edit' : 'Create'} ${dialog}` : ''}</DialogTitle>
+    <DialogTitle>{dialog === 'assignment' ? 'Assign counselor or professional' : dialog === 'transfer' ? 'Transfer students' : dialog ? `${editing ? 'Edit' : 'Create'} ${dialog}` : ''}</DialogTitle>
     <DialogContent sx={{ pt: 2 }}>
       {dialog === 'user' && (
         <Stack gap={2} sx={{ mt: 1 }}>
-          <TextField label="Full name" value={form.user.full_name} onChange={(event) => setForm({ ...form, user: { ...form.user, full_name: event.target.value } })} />
-          <TextField label="Username" value={form.user.username} onChange={(event) => setForm({ ...form, user: { ...form.user, username: event.target.value } })} />
-          <TextField label="Email" value={form.user.email} onChange={(event) => setForm({ ...form, user: { ...form.user, email: event.target.value } })} />
-          <TextField label="Password" type="password" value={form.user.password} onChange={(event) => setForm({ ...form, user: { ...form.user, password: event.target.value } })} />
+          <TextField label="Full name" required value={form.user.full_name} onChange={(event) => setForm({ ...form, user: { ...form.user, full_name: event.target.value } })} />
+          <TextField label="Username" required disabled={!!editing} value={form.user.username} onChange={(event) => setForm({ ...form, user: { ...form.user, username: event.target.value } })} />
+          <TextField label="Email" required type="email" value={form.user.email} onChange={(event) => setForm({ ...form, user: { ...form.user, email: event.target.value } })} />
+          {!editing && (
+            <TextField label="Password" required type="password" value={form.user.password} onChange={(event) => setForm({ ...form, user: { ...form.user, password: event.target.value } })} />
+          )}
           <FormControl><InputLabel>Role</InputLabel><Select label="Role" value={form.user.role} onChange={(event) => setForm({ ...form, user: { ...form.user, role: event.target.value } })}><MenuItem value="student">Student</MenuItem><MenuItem value="counselor">Counselor</MenuItem><MenuItem value="admin">Administrator</MenuItem></Select></FormControl>
           <FormControl><InputLabel>University</InputLabel><Select label="University" value={form.user.university_id} onChange={(event) => setForm({ ...form, user: { ...form.user, university_id: event.target.value } })}><MenuItem value="">None</MenuItem>{universities.map((uni) => <MenuItem key={uni.id} value={uni.id}>{uni.university}</MenuItem>)}</Select></FormControl>
+          <TextField label="Department" value={form.user.department} onChange={(event) => setForm({ ...form, user: { ...form.user, department: event.target.value } })} />
+          <TextField label="Year of study" type="number" value={form.user.year_of_study} onChange={(event) => setForm({ ...form, user: { ...form.user, year_of_study: event.target.value } })} />
+          {editing?.type === 'user' && (
+            <FormControl>
+              <InputLabel>Status</InputLabel>
+              <Select label="Status" value={form.user.status} onChange={(event) => setForm({ ...form, user: { ...form.user, status: event.target.value } })}>
+                <MenuItem value="active">Active</MenuItem>
+                <MenuItem value="inactive">Inactive</MenuItem>
+                <MenuItem value="suspended">Suspended</MenuItem>
+              </Select>
+            </FormControl>
+          )}
         </Stack>
       )}
       {dialog === 'university' && (
         <Stack gap={2} sx={{ mt: 1 }}>
-          <TextField label="University" value={form.university.university_name} onChange={(event) => setForm({ ...form, university: { ...form.university, university_name: event.target.value } })} />
-          <TextField label="Code" disabled={!!editing} value={form.university.university_code} onChange={(event) => setForm({ ...form, university: { ...form.university, university_code: event.target.value } })} />
+          <TextField
+            label="University"
+            required
+            error={!form.university.university_name.trim()}
+            helperText={!form.university.university_name.trim() ? 'University name is required' : ''}
+            value={form.university.university_name}
+            onChange={(event) => setForm({ ...form, university: { ...form.university, university_name: event.target.value } })}
+          />
+          <TextField
+            label="Code"
+            required
+            disabled={!!editing}
+            error={!editing && !form.university.university_code.trim()}
+            helperText={!editing && !form.university.university_code.trim() ? 'University code is required' : ''}
+            value={form.university.university_code}
+            onChange={(event) => setForm({ ...form, university: { ...form.university, university_code: event.target.value } })}
+          />
           <TextField label="Campus" value={form.university.campus_name} onChange={(event) => setForm({ ...form, university: { ...form.university, campus_name: event.target.value } })} />
           <TextField label="District" value={form.university.district} onChange={(event) => setForm({ ...form, university: { ...form.university, district: event.target.value } })} />
-          <TextField label="Counseling unit phone" value={form.university.counseling_unit_phone} onChange={(event) => setForm({ ...form, university: { ...form.university, counseling_unit_phone: event.target.value } })} />
+          <TextField label="Counseling unit phone" placeholder="+94771234567" value={form.university.counseling_unit_phone} onChange={(event) => setForm({ ...form, university: { ...form.university, counseling_unit_phone: event.target.value } })} />
         </Stack>
       )}
       {dialog === 'counselor' && (
@@ -770,6 +937,7 @@ const AdminDialog = ({ dialog, editing, form, setForm, universities, reportTypes
               {universities.map((uni) => <MenuItem key={uni.id} value={uni.id}>{uni.university}</MenuItem>)}
             </Select>
           </FormControl>
+          <TextField label="Professional title" value={form.counselor.professional_title} onChange={(event) => setForm({ ...form, counselor: { ...form.counselor, professional_title: event.target.value } })} />
           <TextField label="Qualification" value={form.counselor.qualification} onChange={(event) => setForm({ ...form, counselor: { ...form.counselor, qualification: event.target.value } })} />
           <TextField label="Specialization" value={form.counselor.specialization} onChange={(event) => setForm({ ...form, counselor: { ...form.counselor, specialization: event.target.value } })} />
           <TextField label="Phone" value={form.counselor.telephone_number} onChange={(event) => setForm({ ...form, counselor: { ...form.counselor, telephone_number: event.target.value } })} />
@@ -779,6 +947,41 @@ const AdminDialog = ({ dialog, editing, form, setForm, universities, reportTypes
             <TextField fullWidth label="From" value={form.counselor.available_from} onChange={(event) => setForm({ ...form, counselor: { ...form.counselor, available_from: event.target.value } })} />
             <TextField fullWidth label="Until" value={form.counselor.available_until} onChange={(event) => setForm({ ...form, counselor: { ...form.counselor, available_until: event.target.value } })} />
           </Stack>
+        </Stack>
+      )}
+      {dialog === 'assignment' && (
+        <Stack gap={2} sx={{ mt: 1 }}>
+          <TextField label="Student" value={editing?.name || ''} disabled />
+          <FormControl fullWidth>
+            <InputLabel>Professional</InputLabel>
+            <Select label="Professional" value={form.assignment.counselor_id} onChange={(event) => setForm({ ...form, assignment: { ...form.assignment, counselor_id: event.target.value } })}>
+              {counselors.map((counselor) => (
+                <MenuItem key={counselor.id} value={counselorUserId(counselor)} disabled={counselor.active === false}>
+                  {counselorLabel(counselor)}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField label="Reason" multiline rows={2} value={form.assignment.assignment_reason} onChange={(event) => setForm({ ...form, assignment: { ...form.assignment, assignment_reason: event.target.value } })} />
+        </Stack>
+      )}
+      {dialog === 'transfer' && (
+        <Stack gap={2} sx={{ mt: 1 }}>
+          <TextField label="From" value={editing?.name || ''} disabled />
+          <TextField label="Active students" value={editing?.assignmentCount || 0} disabled />
+          <FormControl fullWidth>
+            <InputLabel>To</InputLabel>
+            <Select label="To" value={form.transfer.to_counselor_id} onChange={(event) => setForm({ ...form, transfer: { ...form.transfer, to_counselor_id: event.target.value } })}>
+              {counselors
+                .filter((counselor) => counselor.active !== false && !counselor.profile_missing && counselor.id !== editing?.id)
+                .map((counselor) => (
+                  <MenuItem key={counselor.id} value={counselor.id}>
+                    {counselorLabel(counselor)}
+                  </MenuItem>
+                ))}
+            </Select>
+          </FormControl>
+          <TextField label="Reason" multiline rows={2} value={form.transfer.reason} onChange={(event) => setForm({ ...form, transfer: { ...form.transfer, reason: event.target.value } })} />
         </Stack>
       )}
       {dialog === 'resource' && (
@@ -801,7 +1004,18 @@ const AdminDialog = ({ dialog, editing, form, setForm, universities, reportTypes
     </DialogContent>
     <DialogActions>
       <Button onClick={onClose}>Cancel</Button>
-      <Button variant="contained" onClick={onSubmit}>Save</Button>
+      <Button
+        variant="contained"
+        disabled={
+          (dialog === 'assignment' && !form.assignment.counselor_id)
+          || (dialog === 'transfer' && (!form.transfer.to_counselor_id || !editing?.assignmentCount))
+          || (dialog === 'university' && (!form.university.university_name.trim() || (!editing && !form.university.university_code.trim())))
+          || (dialog === 'user' && (!form.user.full_name.trim() || !form.user.email.trim() || !form.user.username.trim() || (!editing && !form.user.password)))
+        }
+        onClick={onSubmit}
+      >
+        Save
+      </Button>
     </DialogActions>
   </Dialog>
 );
